@@ -14,3 +14,5 @@ __pycache__/
 # Frontend build output
 frontend/.next/
 frontend/node_modules/
+config.bat
+node_modules
