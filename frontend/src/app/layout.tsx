@@ -21,11 +21,11 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex bg-[#F8F8F3] text-[#26352C] antialiased">
+      <body className="min-h-full flex bg-[#F7F8F3] text-[#19382A] antialiased">
         <FarmProvider>
           {/* Dark Forest Green Sidebar */}
           <Sidebar />
@@ -33,8 +33,8 @@ export default function RootLayout({
           {/* Main Layout Area */}
           <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
             <Header />
-            <main className="flex-1 overflow-y-auto bg-[#F8F8F3] p-6 lg:p-8">
-              <div className="max-w-7xl mx-auto space-y-8">
+            <main className="flex-1 overflow-y-auto bg-[#F7F8F3] p-5 lg:p-8">
+              <div className="max-w-[1440px] mx-auto space-y-6">
                 {children}
               </div>
             </main>
