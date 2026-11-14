@@ -2,11 +2,10 @@
 
 import React from "react";
 import { useFarm } from "@/context/FarmContext";
-import { MapPin, Droplets, Wheat, Sparkles, ChevronDown } from "lucide-react";
-import Link from "next/link";
+import { MapPin, Droplets, Wheat, ChevronDown, UserRound } from "lucide-react";
 
 export function Header() {
-  const { farms, selectedFarm, setSelectedFarm, isDemoMode } = useFarm();
+  const { farms, selectedFarm, setSelectedFarm } = useFarm();
 
   return (
     <header className="h-[72px] bg-white border-b border-[#E1E6DF] px-5 lg:px-8 flex items-center justify-between sticky top-0 z-30">
@@ -58,23 +57,16 @@ export function Header() {
         )}
       </div>
 
-      {/* Demo / Live Status & Quick Action */}
-      <div className="flex items-center gap-3">
-        {/* Transparent Provenance & Demo Mode Badge */}
-        <div className="hidden sm:flex items-center gap-2 bg-[#F3F7F1] px-3 py-1.5 rounded-full border border-[#DDE8DB] text-xs">
-          <span className="w-2 h-2 rounded-full bg-[#62A05F]"></span>
-          <span className="font-medium text-[#376046]">
-            {isDemoMode ? "Preview data" : "Live data"}
-          </span>
+      {/* Farmer profile */}
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#143D2B] text-white">
+          <UserRound className="h-4 w-4" />
         </div>
-
-        <Link
-          href="/climate-simulator"
-          className="flex items-center gap-1.5 bg-[#377C52] hover:bg-[#286342] text-white px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm transition"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[#9DBB78]" />
-          <span>Simulate Stress</span>
-        </Link>
+        <div className="hidden text-left sm:block">
+          <p className="text-xs font-semibold text-[#19382A]">Farmer profile</p>
+          <p className="text-[10px] text-[#718078]">Farm manager</p>
+        </div>
+        <ChevronDown className="hidden h-4 w-4 text-[#718078] sm:block" />
       </div>
     </header>
   );
