@@ -1,279 +1,779 @@
+
 "use client";
 
 import React, { useEffect, useState } from "react";
 import { useFarm } from "@/context/FarmContext";
 import { fetchEnvironmentalSummary } from "@/lib/api";
 import { EnvironmentalSummary } from "@/types";
-import { ProvenanceCard } from "@/components/ProvenanceCard";
 import {
-  Thermometer,
+  ThermometerSun,
   CloudRain,
   Droplets,
   Sprout,
   Mountain,
-  Satellite,
-  Compass,
-  TrendingUp,
-  AlertCircle,
   Layers,
-  History,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  ChevronDown,
+  Satellite,
+  Leaf,
+  RefreshCw,
+  MapPin,
 } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Legend,
-} from "recharts";
+
+// --------------------------------------------------
+// Reusable metric card
+// --------------------------------------------------
+
+interface MetricCardProps {
+  title: string;
+  value: string;
+  status: string;
+  description: string;
+  icon: React.ElementType;
+  statusType?: "good" | "warning" | "neutral";
+}
+
+function MetricCard({
+  title,
+  value,
+  status,
+  description,
+  icon: Icon,
+  statusType = "neutral",
+}: MetricCardProps) {
+  const statusColors = {
+    good: "bg-[#EAF4ED] text-[#39734C]",
+    warning: "bg-[#FFF4E5] text-[#A66B20]",
+    neutral: "bg-[#F1F2EE] text-[#617367]",
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-[#E8E2D2] p-5 hover:shadow-sm transition-shadow">
+      <div className="flex items-start justify-between">
+        <div className="w-10 h-10 rounded-xl bg-[#EAF4ED] flex items-center justify-center">
+          <Icon className="w-5 h-5 text-[#39734C]" />
+        </div>
+
+        <span
+          className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusColors[statusType]}`}
+        >
+          {status}
+        </span>
+      </div>
+
+      <p className="text-sm text-[#617367] mt-4">{title}</p>
+
+      <h3 className="text-2xl font-bold text-[#183D2C] mt-1">
+        {value}
+      </h3>
+
+      <p className="text-xs text-[#839087] mt-2 leading-relaxed">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+// --------------------------------------------------
+// Main page
+// --------------------------------------------------
 
 export default function EnvironmentalInsightsPage() {
   const { selectedFarm } = useFarm();
+
   const [env, setEnv] = useState<EnvironmentalSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!selectedFarm) return;
-    setLoading(true);
-    fetchEnvironmentalSummary(selectedFarm.id)
-      .then(setEnv)
-      .finally(() => setLoading(false));
+    if (!selectedFarm) {
+      setEnv(null);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadData() {
+      setLoading(true);
+      setError(false);
+
+      try {
+        const result = await fetchEnvironmentalSummary(selectedFarm!.id);
+
+        if (!cancelled) {
+          setEnv(result);
+        }
+      } catch (err) {
+        console.error("Failed to load environmental data:", err);
+
+        if (!cancelled) {
+          setError(true);
+          setEnv(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedFarm]);
 
-  if (loading || !env || !selectedFarm) {
+  // --------------------------------------------------
+  // Loading state
+  // --------------------------------------------------
+
+  if (loading) {
     return (
-      <div className="py-20 flex flex-col items-center justify-center space-y-4">
-        <div className="w-10 h-10 border-4 border-[#39734C] border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-semibold text-[#617367]">
-          Retrieving Multi-Mission NASA Observations...
+      <div className="min-h-[400px] flex flex-col items-center justify-center gap-3">
+        <div className="w-9 h-9 border-[3px] border-[#39734C] border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-[#617367]">
+          Loading your farm conditions...
         </p>
       </div>
     );
   }
 
-  // 4-Season Historical Anomaly Data (2023 - 2026)
-  const seasonalComparison = [
-    { season: "Kharif 2023", rainfall: 410, normalRain: 440, temp: 28.2, normalTemp: 27.5, soilMoisture: 28 },
-    { season: "Rabi 2023-24", rainfall: 115, normalRain: 120, temp: 16.5, normalTemp: 16.0, soilMoisture: 24 },
-    { season: "Kharif 2024", rainfall: 340, normalRain: 440, temp: 29.8, normalTemp: 27.5, soilMoisture: 21 },
-    { season: "Rabi 2024-25", rainfall: 95, normalRain: 120, temp: 17.8, normalTemp: 16.0, soilMoisture: 20 },
-    { season: "Kharif 2025", rainfall: 310, normalRain: 440, temp: 30.5, normalTemp: 27.5, soilMoisture: 19 },
-    { season: "Rabi 2025-26", rainfall: 88, normalRain: 120, temp: 18.2, normalTemp: 16.0, soilMoisture: 18 },
+  // --------------------------------------------------
+  // No farm selected
+  // --------------------------------------------------
+
+  if (!selectedFarm) {
+    return (
+      <div className="min-h-[400px] flex flex-col items-center justify-center text-center gap-3">
+        <Sprout className="w-10 h-10 text-[#39734C]" />
+        <h3 className="text-lg font-bold text-[#183D2C]">
+          Select a farm to get started
+        </h3>
+        <p className="text-sm text-[#617367] max-w-sm">
+          Choose one of your farms to explore its environmental conditions.
+        </p>
+      </div>
+    );
+  }
+
+  // --------------------------------------------------
+  // Error state
+  // --------------------------------------------------
+
+  if (error || !env) {
+    return (
+      <div className="min-h-[400px] flex flex-col items-center justify-center text-center gap-3">
+        <AlertTriangle className="w-9 h-9 text-[#B77935]" />
+
+        <h3 className="text-lg font-bold text-[#183D2C]">
+          Couldn't load farm conditions
+        </h3>
+
+        <p className="text-sm text-[#617367]">
+          Something went wrong while retrieving your environmental data.
+          Please try again.
+        </p>
+
+        <button
+          onClick={() => window.location.reload()}
+          className="flex items-center gap-2 bg-[#39734C] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#285B39]"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  // --------------------------------------------------
+  // Environmental observations
+  // --------------------------------------------------
+
+  const rainfallDeficit = env.rainfall.rainfall_deficit_pct;
+  const hotDays = env.temperature.hot_days_gt_35c;
+  const moistureStatus = env.soil_moisture.anomaly_status;
+  const ndviAnomaly = env.vegetation.ndvi_anomaly;
+
+  const observations = [
+    ...(rainfallDeficit > 0
+      ? [
+          {
+            title: "Rainfall is below average",
+            description: `Your farm has received ${rainfallDeficit}% less rainfall than its historical average. This may affect crops that depend heavily on rainfall.`,
+            type: "warning" as const,
+          },
+        ]
+      : [
+          {
+            title: "Rainfall conditions look favorable",
+            description:
+              "Rainfall is not showing a deficit against the historical average.",
+            type: "good" as const,
+          },
+        ]),
+
+    ...(hotDays > 0
+      ? [
+          {
+            title: "Hot days are affecting your growing conditions",
+            description: `There have been ${hotDays} days with temperatures above 35°C. Heat-sensitive crops may need extra attention.`,
+            type: "warning" as const,
+          },
+        ]
+      : []),
+
+    ...(moistureStatus.toLowerCase().includes("deficit")
+      ? [
+          {
+            title: "Soil moisture is lower than usual",
+            description:
+              "Less moisture is available in the measured soil layer. Consider water availability when planning your next crop.",
+            type: "warning" as const,
+          },
+        ]
+      : []),
+
+    ...(ndviAnomaly < 0
+      ? [
+          {
+            title: "Vegetation growth is below its usual level",
+            description:
+              "Satellite vegetation measurements are lower than the historical average. This can indicate changes in vegetation conditions.",
+            type: "warning" as const,
+          },
+        ]
+      : []),
+  ];
+
+  // --------------------------------------------------
+  // Data sources
+  // --------------------------------------------------
+
+  const dataSources = [
+    {
+      name: "NASA POWER",
+      description: "Temperature and weather conditions",
+    },
+    {
+      name: "NASA SMAP",
+      description: "Soil moisture observations",
+    },
+    {
+      name: "Sentinel-2",
+      description: "Satellite vegetation measurements",
+    },
+    {
+      name: "SoilGrids",
+      description: "Soil properties and composition",
+    },
+    {
+      name: "SRTM",
+      description: "Land elevation and slope",
+    },
   ];
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#39734C] bg-[#EAF4ED] px-2.5 py-0.5 rounded-full">
-            Earth Observation Diagnostics
+    <div className="space-y-8 pb-10">
+
+      {/* ==========================================
+          HEADER
+      ========================================== */}
+
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold bg-[#EAF4ED] text-[#39734C] px-3 py-1 rounded-full">
+            Farm Overview
           </span>
-          <span className="text-xs text-[#617367]">Holding: {selectedFarm.name}</span>
+
+          <span className="flex items-center gap-1 text-xs text-[#617367]">
+            <MapPin className="w-3 h-3" />
+            {selectedFarm.name}
+          </span>
         </div>
-        <h2 className="text-2xl lg:text-3xl font-extrabold text-[#183D2C] tracking-tight font-serif">
-          Environmental Insights & Satellite Observations
-        </h2>
-        <p className="text-xs text-[#617367] mt-1 max-w-3xl">
-          Multi-sensor analysis integrating NASA POWER daily agrometeorology, NASA SMAP soil moisture radiometry,
-          Copernicus Sentinel-2 surface reflectance, and ISRIC SoilGrids pedometrics.
+
+        <h1 className="text-2xl lg:text-3xl font-bold text-[#183D2C] font-serif">
+          Farm Conditions
+        </h1>
+
+        <p className="text-sm text-[#617367] max-w-2xl">
+          Understand the environmental conditions affecting your farm
+          and what they could mean for your next growing season.
         </p>
       </div>
 
-      {/* Grid of All Core NASA & Earth Metrics with Provenance Metadata */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        <ProvenanceCard
-          title="Air Temperature (2m)"
-          value={`${env.temperature.avg_temp_c}°`}
-          unit="C"
-          subtitle={`Extreme Max ${env.temperature.max_temp_c}°C • Min ${env.temperature.min_temp_c}°C`}
-          provenance={env.temperature.provenance}
-          trendText={`${env.temperature.hot_days_gt_35c} days ≥35°C (Heat Stress)`}
-          isPositiveTrend={env.temperature.hot_days_gt_35c < 10}
-        />
 
-        <ProvenanceCard
-          title="Total Precipitation"
-          value={Math.round(env.rainfall.annual_precipitation_mm)}
-          unit="mm / yr"
-          subtitle={`Seasonal ${Math.round(env.rainfall.seasonal_precipitation_mm)}mm • ${env.rainfall.heavy_rain_events_gt_25mm} heavy rain bursts (>25mm)`}
-          provenance={env.rainfall.provenance}
-          trendText={`Deficit: ${env.rainfall.rainfall_deficit_pct}%`}
-          isPositiveTrend={env.rainfall.rainfall_deficit_pct <= 10}
-        />
+      {/* ==========================================
+          ENVIRONMENTAL OVERVIEW
+      ========================================== */}
 
-        <ProvenanceCard
-          title="Soil Moisture (SMAP 9km)"
-          value={env.soil_moisture.surface_soil_moisture_m3_m3.toFixed(2)}
-          unit="m³/m³"
-          subtitle={`Root-zone: ${env.soil_moisture.root_zone_soil_moisture_m3_m3.toFixed(2)} m³/m³ • Radiometric L-band 0-5cm`}
-          provenance={env.soil_moisture.provenance}
-          trendText={env.soil_moisture.anomaly_status}
-          isPositiveTrend={!env.soil_moisture.anomaly_status.includes("Deficit")}
-        />
+      <section className="space-y-4">
 
-        <ProvenanceCard
-          title="Vegetation Index (NDVI)"
-          value={env.vegetation.current_ndvi.toFixed(2)}
-          unit="NDVI"
-          subtitle={`Historical Mean: ${env.vegetation.mean_historical_ndvi} • Peak Vigour: ${env.vegetation.peak_season_ndvi}`}
-          provenance={env.vegetation.provenance}
-          trendText={`Anomaly: ${env.vegetation.ndvi_anomaly > 0 ? "+" : ""}${env.vegetation.ndvi_anomaly}`}
-          isPositiveTrend={env.vegetation.ndvi_anomaly >= 0}
-        />
+        <div>
+          <h2 className="text-lg font-bold text-[#183D2C]">
+            Here's what we're seeing
+          </h2>
 
-        <ProvenanceCard
-          title="Soil Organic Carbon"
-          value={env.soil_properties.organic_carbon_g_kg}
-          unit="g / kg"
-          subtitle={`pH: ${env.soil_properties.ph_in_h2o} • Available Water: ${env.soil_properties.available_water_capacity_mm_m} mm/m`}
-          provenance={env.soil_properties.provenance}
-          trendText={`Bulk Density: ${env.soil_properties.bulk_density_cg_cm3} cg/cm³`}
-          isPositiveTrend={env.soil_properties.organic_carbon_g_kg > 12.0}
-        />
+          <p className="text-sm text-[#839087] mt-1">
+            A quick look at your farm's environmental conditions.
+          </p>
+        </div>
 
-        <ProvenanceCard
-          title="Topographic Slope & Erosion"
-          value={env.terrain.slope_degrees}
-          unit="Degrees"
-          subtitle={`Elevation: ${env.terrain.mean_elevation_m}m • Category: ${env.terrain.slope_category}`}
-          provenance={env.terrain.provenance}
-          trendText={env.terrain.erosion_susceptibility}
-          isPositiveTrend={env.terrain.slope_degrees < 4.0}
-        />
-      </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
 
-      {/* Multi-Year Seasonal Rainfall & Temperature Historical Comparison */}
-      <div className="bg-[#FFFFFF] rounded-2xl p-6 border border-[#E8E2D2] shadow-xs space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h3 className="text-base font-bold text-[#183D2C] flex items-center gap-2">
-              <History className="w-4 h-4 text-[#39734C]" />
-              Multi-Year Seasonal Rainfall vs 30-Year Climatological Normal
-            </h3>
-            <p className="text-xs text-[#617367]">
-              Observed seasonal precipitation (mm) against historical baseline showing drying anomalies
+          <MetricCard
+            title="Temperature"
+            value={`${env.temperature.avg_temp_c}°C`}
+            status={hotDays > 0 ? "Hot days recorded" : "No extreme heat days"}
+            statusType={hotDays > 0 ? "warning" : "neutral"}
+            description={`${hotDays} days above 35°C`}
+            icon={ThermometerSun}
+          />
+
+          <MetricCard
+            title="Annual Rainfall"
+            value={`${Math.round(env.rainfall.annual_precipitation_mm)} mm`}
+            status={
+              rainfallDeficit > 0
+                ? "Below average"
+                : "No rainfall deficit"
+            }
+            statusType={rainfallDeficit > 0 ? "warning" : "good"}
+            description={`${rainfallDeficit}% rainfall deficit compared with the historical average`}
+            icon={CloudRain}
+          />
+
+          <MetricCard
+            title="Soil Moisture"
+            value={env.soil_moisture.surface_soil_moisture_m3_m3.toFixed(2)}
+            status={moistureStatus}
+            statusType={
+              moistureStatus.toLowerCase().includes("deficit")
+                ? "warning"
+                : "neutral"
+            }
+            description="Measured moisture in the upper soil layer"
+            icon={Droplets}
+          />
+
+          <MetricCard
+            title="Vegetation Health"
+            value={env.vegetation.current_ndvi.toFixed(2)}
+            status={
+              ndviAnomaly < 0 ? "Below usual level" : "At or above usual level"
+            }
+            statusType={ndviAnomaly < 0 ? "warning" : "good"}
+            description="Satellite indicator of vegetation growth"
+            icon={Sprout}
+          />
+
+        </div>
+      </section>
+
+
+      {/* ==========================================
+          WHAT WE'VE NOTICED
+      ========================================== */}
+
+      <section className="space-y-4">
+
+        <div>
+          <h2 className="text-lg font-bold text-[#183D2C]">
+            What we've noticed
+          </h2>
+
+          <p className="text-sm text-[#839087] mt-1">
+            Environmental changes worth paying attention to.
+          </p>
+        </div>
+
+        {observations.length > 0 ? (
+          <div className="space-y-3">
+
+            {observations.slice(0, 3).map((item, index) => (
+              <div
+                key={index}
+                className="flex items-start gap-3 p-4 bg-white rounded-xl border border-[#E8E2D2]"
+              >
+                <div
+                  className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center ${
+                    item.type === "warning"
+                      ? "bg-[#FFF4E5] text-[#B77935]"
+                      : "bg-[#EAF4ED] text-[#39734C]"
+                  }`}
+                >
+                  {item.type === "warning" ? (
+                    <AlertTriangle className="w-4 h-4" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4" />
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-1">
+                  <h3 className="text-sm font-semibold text-[#183D2C]">
+                    {item.title}
+                  </h3>
+
+                  <p className="text-sm text-[#617367] leading-relaxed">
+                    {item.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+
+          </div>
+        ) : (
+          <div className="p-4 bg-[#EAF4ED] rounded-xl flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-[#39734C]" />
+            <p className="text-sm text-[#285B39]">
+              No major environmental concerns were identified
+              from the available indicators.
             </p>
           </div>
-          <div className="flex items-center gap-4 text-xs">
-            <span className="flex items-center gap-1.5 font-medium">
-              <span className="w-3 h-3 rounded-md bg-[#39734C]"></span>
-              Observed Rainfall (mm)
-            </span>
-            <span className="flex items-center gap-1.5 font-medium">
-              <span className="w-3 h-3 rounded-md bg-[#DDD6C3]"></span>
-              Historical Normal (mm)
-            </span>
+        )}
+
+      </section>
+
+
+      {/* ==========================================
+          SOIL AND LAND
+      ========================================== */}
+
+      <section className="space-y-4">
+
+        <div>
+          <h2 className="text-lg font-bold text-[#183D2C]">
+            Your soil and land
+          </h2>
+
+          <p className="text-sm text-[#839087] mt-1">
+            Get to know the ground you're growing on.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* Soil card */}
+
+          <div className="bg-white rounded-2xl border border-[#E8E2D2] p-5 space-y-4">
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#F8F0E5] flex items-center justify-center">
+                <Layers className="w-5 h-5 text-[#A66B36]" />
+              </div>
+
+              <div>
+                <h3 className="font-bold text-[#183D2C]">
+                  Soil Quality
+                </h3>
+                <p className="text-xs text-[#839087]">
+                  Your soil's composition
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+
+              <div>
+                <p className="text-xs text-[#839087]">Organic Carbon</p>
+                <p className="text-xl font-bold text-[#183D2C] mt-1">
+                  {env.soil_properties.organic_carbon_g_kg}
+                  <span className="text-xs font-normal text-[#839087] ml-1">
+                    g/kg
+                  </span>
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-[#839087]">Soil pH</p>
+                <p className="text-xl font-bold text-[#183D2C] mt-1">
+                  {env.soil_properties.ph_in_h2o}
+                </p>
+              </div>
+
+              <div className="col-span-2">
+                <p className="text-xs text-[#839087]">
+                  Water-holding capacity
+                </p>
+                <p className="text-lg font-bold text-[#183D2C] mt-1">
+                  {env.soil_properties.available_water_capacity_mm_m}
+                  <span className="text-xs font-normal text-[#839087] ml-1">
+                    mm/m
+                  </span>
+                </p>
+              </div>
+
+            </div>
+
+            <details className="group border-t border-[#F0EDE4] pt-3">
+              <summary className="flex items-center justify-between cursor-pointer text-xs font-semibold text-[#39734C] list-none">
+                View soil composition
+                <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+              </summary>
+
+              <div className="space-y-3 mt-4">
+
+                {[
+                  {
+                    label: "Sand",
+                    value: env.soil_properties.sand_fraction_pct,
+                    color: "bg-[#E8A555]",
+                  },
+                  {
+                    label: "Silt",
+                    value: env.soil_properties.silt_fraction_pct,
+                    color: "bg-[#9DBB78]",
+                  },
+                  {
+                    label: "Clay",
+                    value: env.soil_properties.clay_fraction_pct,
+                    color: "bg-[#39734C]",
+                  },
+                ].map((item) => (
+                  <div key={item.label}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-[#617367]">{item.label}</span>
+                      <span className="font-semibold text-[#183D2C]">
+                        {item.value}%
+                      </span>
+                    </div>
+
+                    <div className="h-2 rounded-full bg-[#F0EDE4] overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${item.color}`}
+                        style={{
+                          width: `${Math.min(100, Math.max(0, item.value))}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+
+              </div>
+            </details>
+
           </div>
-        </div>
 
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={seasonalComparison}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F0EDE4" />
-              <XAxis dataKey="season" stroke="#617367" fontSize={11} />
-              <YAxis stroke="#617367" fontSize={11} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#FFFFFF",
-                  borderColor: "#DDD6C3",
-                  borderRadius: "12px",
-                  fontSize: "12px",
-                }}
-              />
-              <Bar dataKey="rainfall" fill="#39734C" radius={[6, 6, 0, 0]} name="Observed Rainfall (mm)" />
-              <Bar dataKey="normalRain" fill="#DDD6C3" radius={[6, 6, 0, 0]} name="Normal Baseline (mm)" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
 
-        {/* Analytical takeaway alert */}
-        <div className="p-4 rounded-xl bg-[#F8F8F3] border border-[#DDD6C3] text-xs text-[#26352C] leading-relaxed flex items-start gap-3">
-          <AlertCircle className="w-4 h-4 text-[#39734C] shrink-0 mt-0.5" />
+          {/* Land card */}
+
+          <div className="bg-white rounded-2xl border border-[#E8E2D2] p-5 space-y-4">
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#EAF4ED] flex items-center justify-center">
+                <Mountain className="w-5 h-5 text-[#39734C]" />
+              </div>
+
+              <div>
+                <h3 className="font-bold text-[#183D2C]">
+                  Land & Erosion
+                </h3>
+                <p className="text-xs text-[#839087]">
+                  Your farm's terrain
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+
+              <div>
+                <p className="text-xs text-[#839087]">Elevation</p>
+                <p className="text-xl font-bold text-[#183D2C] mt-1">
+                  {env.terrain.mean_elevation_m}
+                  <span className="text-xs font-normal text-[#839087] ml-1">
+                    m
+                  </span>
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-[#839087]">Land Slope</p>
+                <p className="text-xl font-bold text-[#183D2C] mt-1">
+                  {env.terrain.slope_degrees}°
+                </p>
+              </div>
+
+            </div>
+
+            <div className="bg-[#F8F8F3] rounded-xl p-3">
+              <p className="text-xs text-[#839087] mb-1">
+                Erosion risk
+              </p>
+
+              <p className="text-sm font-semibold text-[#183D2C]">
+                {env.terrain.erosion_susceptibility}
+              </p>
+
+              <p className="text-xs text-[#617367] mt-1">
+                Maintaining vegetation cover and crop residues
+                can help protect soil from erosion.
+              </p>
+            </div>
+
+            <p className="text-xs text-[#839087]">
+              {env.terrain.slope_category}
+            </p>
+
+          </div>
+
+        </div>
+      </section>
+
+
+      {/* ==========================================
+          CROP ROTATION CONNECTION
+      ========================================== */}
+
+      <section className="bg-[#F1F5EF] border border-[#DCE9DC] rounded-2xl p-5 sm:p-6 space-y-4">
+
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center">
+            <Leaf className="w-5 h-5 text-[#39734C]" />
+          </div>
+
           <div>
-            <span className="font-bold">Agroclimatic Trend Analysis:</span> Seasonal rainfall over Kharif 2024 and 2025 exhibits a 22-29% precipitation deficit below the long-term normal. Maximum consecutive dry days have expanded from 16 to 26 days. This empirical shift underscores the vulnerability of continuing high-water cereal monocultures without rotation diversification.
+            <h2 className="font-bold text-[#183D2C]">
+              What this means for your next crop
+            </h2>
+
+            <p className="text-xs text-[#617367] mt-0.5">
+              Things to consider when planning your rotation.
+            </p>
           </div>
         </div>
-      </div>
 
-      {/* Soil Texture & Profile Distribution */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[#FFFFFF] rounded-2xl p-6 border border-[#E8E2D2] shadow-xs space-y-4">
-          <h3 className="text-sm font-bold text-[#183D2C] uppercase tracking-wider flex items-center gap-2">
-            <Sprout className="w-4 h-4 text-[#39734C]" />
-            ISRIC Soil Texture Fractions (0-30cm Horizon)
-          </h3>
-          <div className="space-y-3">
-            <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span>Sand Fraction</span>
-                <span>{env.soil_properties.sand_fraction_pct}%</span>
-              </div>
-              <div className="w-full h-2.5 rounded-full bg-[#F0EDE4] overflow-hidden">
-                <div
-                  className="h-full bg-[#E8A555] rounded-full"
-                  style={{ width: `${env.soil_properties.sand_fraction_pct}%` }}
-                ></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+          {rainfallDeficit > 0 && (
+            <div className="bg-white rounded-xl p-4 flex gap-3">
+              <Droplets className="w-5 h-5 text-[#39734C] shrink-0" />
+
+              <div>
+                <h3 className="text-sm font-semibold text-[#183D2C]">
+                  Think about water-efficient crops
+                </h3>
+                <p className="text-xs text-[#617367] mt-1 leading-relaxed">
+                  Below-average rainfall makes water requirements
+                  an important factor in your next crop choice.
+                </p>
               </div>
             </div>
+          )}
 
-            <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span>Silt Fraction</span>
-                <span>{env.soil_properties.silt_fraction_pct}%</span>
-              </div>
-              <div className="w-full h-2.5 rounded-full bg-[#F0EDE4] overflow-hidden">
-                <div
-                  className="h-full bg-[#9DBB78] rounded-full"
-                  style={{ width: `${env.soil_properties.silt_fraction_pct}%` }}
-                ></div>
+          {ndviAnomaly < 0 && (
+            <div className="bg-white rounded-xl p-4 flex gap-3">
+              <Sprout className="w-5 h-5 text-[#39734C] shrink-0" />
+
+              <div>
+                <h3 className="text-sm font-semibold text-[#183D2C]">
+                  Consider improving soil cover
+                </h3>
+                <p className="text-xs text-[#617367] mt-1 leading-relaxed">
+                  Cover crops and retained crop residues can
+                  help protect soil and reduce moisture loss.
+                </p>
               </div>
             </div>
+          )}
+
+          <div className="bg-white rounded-xl p-4 flex gap-3">
+            <Leaf className="w-5 h-5 text-[#39734C] shrink-0" />
 
             <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span>Clay Fraction</span>
-                <span>{env.soil_properties.clay_fraction_pct}%</span>
-              </div>
-              <div className="w-full h-2.5 rounded-full bg-[#F0EDE4] overflow-hidden">
-                <div
-                  className="h-full bg-[#39734C] rounded-full"
-                  style={{ width: `${env.soil_properties.clay_fraction_pct}%` }}
-                ></div>
-              </div>
+              <h3 className="text-sm font-semibold text-[#183D2C]">
+                Explore legume crops
+              </h3>
+              <p className="text-xs text-[#617367] mt-1 leading-relaxed">
+                Suitable legumes can contribute nitrogen
+                and diversify your crop rotation.
+              </p>
             </div>
           </div>
-          <p className="text-[11px] text-[#617367] leading-relaxed pt-2 border-t border-[#F0EDE4]">
-            Pedological classification: <strong>Loam / Silt Loam</strong>. High water retention potential (145 mm/m) but vulnerable to surface crusting under heavy raindrop impact during early spring fallow.
-          </p>
+
         </div>
 
-        <div className="bg-[#FFFFFF] rounded-2xl p-6 border border-[#E8E2D2] shadow-xs space-y-4">
-          <h3 className="text-sm font-bold text-[#183D2C] uppercase tracking-wider flex items-center gap-2">
-            <Mountain className="w-4 h-4 text-[#39734C]" />
-            Topographic Relief & Catchment Vulnerability
-          </h3>
-          <div className="grid grid-cols-2 gap-4 text-xs">
-            <div className="p-3.5 rounded-xl bg-[#F8F8F3] border border-[#DDD6C3]">
-              <span className="text-[#617367] block text-[11px]">Mean Elevation:</span>
-              <strong className="text-base text-[#183D2C]">{env.terrain.mean_elevation_m} meters</strong>
-              <span className="text-[10px] text-[#617367] block mt-0.5">SRTMGL1 (30m)</span>
+        <p className="text-[11px] text-[#617367] leading-relaxed">
+          These are general considerations based on environmental
+          indicators, not final crop recommendations. Local growing
+          seasons, soil conditions, water access and market suitability
+          should also be considered.
+        </p>
+
+      </section>
+
+
+      {/* ==========================================
+          DATA SOURCES
+      ========================================== */}
+
+      <details className="bg-white rounded-2xl border border-[#E8E2D2] group">
+
+        <summary className="flex items-center justify-between p-5 cursor-pointer list-none">
+
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#EAF4ED] flex items-center justify-center">
+              <Satellite className="w-4 h-4 text-[#39734C]" />
             </div>
-            <div className="p-3.5 rounded-xl bg-[#F8F8F3] border border-[#DDD6C3]">
-              <span className="text-[#617367] block text-[11px]">Slope Gradient:</span>
-              <strong className="text-base text-[#183D2C]">{env.terrain.slope_degrees}°</strong>
-              <span className="text-[10px] text-[#617367] block mt-0.5">{env.terrain.slope_category}</span>
+
+            <div>
+              <h3 className="text-sm font-bold text-[#183D2C]">
+                Where does this information come from?
+              </h3>
+
+              <p className="text-xs text-[#839087] mt-0.5">
+                Learn about the data behind your farm insights.
+              </p>
             </div>
           </div>
-          <p className="text-[11px] text-[#617367] leading-relaxed pt-2 border-t border-[#F0EDE4]">
-            Topographical erosion susceptibility: <strong>{env.terrain.erosion_susceptibility}</strong>. The gentle undulating slope creates localized swales where runoff concentrates during intense convective rain bursts. Maintaining continuous crop or residue canopy is essential to eliminate rill formation.
-          </p>
+
+          <ChevronDown className="w-5 h-5 text-[#617367] transition-transform group-open:rotate-180" />
+
+        </summary>
+
+        <div className="px-5 pb-5 border-t border-[#F0EDE4]">
+
+          <div className="divide-y divide-[#F0EDE4]">
+
+            {dataSources.map((source) => (
+              <div
+                key={source.name}
+                className="flex items-center justify-between gap-3 py-3"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-[#183D2C]">
+                    {source.name}
+                  </p>
+
+                  <p className="text-xs text-[#839087]">
+                    {source.description}
+                  </p>
+                </div>
+
+                <CheckCircle2 className="w-4 h-4 text-[#39734C] shrink-0" />
+              </div>
+            ))}
+
+          </div>
+
+          <div className="flex items-start gap-2 mt-3 bg-[#F8F8F3] p-3 rounded-lg">
+            <Info className="w-4 h-4 text-[#617367] shrink-0 mt-0.5" />
+
+            <p className="text-xs text-[#617367] leading-relaxed">
+              Satellite observations and soil datasets provide
+              estimates of environmental conditions. They may not
+              capture every variation within an individual field.
+              Ground measurements and local agricultural knowledge
+              can help validate these findings.
+            </p>
+          </div>
+
         </div>
-      </div>
+
+      </details>
+
     </div>
   );
 }
