@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import { useFarm } from "@/context/FarmContext";
 import { fetchEnvironmentalSummary } from "@/lib/api";
 import { EnvironmentalSummary } from "@/types";
+import { EnvironmentalMap } from "@/components/EnvironmentalMap";
 import {
   ThermometerSun,
   CloudRain,
@@ -304,6 +305,21 @@ export default function EnvironmentalInsightsPage() {
           and what they could mean for your next growing season.
         </p>
       </div>
+
+      <section className="rounded-2xl border border-[#E1E6DF] bg-white p-4 shadow-[0_2px_8px_rgba(27,61,43,0.03)] sm:p-5">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-[#19382A]">Explore your farm</h2>
+            <p className="mt-1 text-xs text-[#718078]">Use the tabs to explore each environmental condition on a real map.</p>
+          </div>
+          <span className="text-[11px] font-medium text-[#718078]">Interactive satellite view</span>
+        </div>
+        <EnvironmentalMap
+          key={selectedFarm.id}
+          farm={selectedFarm}
+          env={env}
+        />
+      </section>
 
 
       {/* ==========================================

@@ -179,32 +179,23 @@ export default function RotationPlannerPage() {
     currentStrategy.strategy_id === rotations.recommended_strategy_id;
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-6 pb-10">
 
       {/* ==========================================
           PAGE HEADER
       ========================================== */}
 
-      <section className="space-y-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-semibold bg-[#EAF4ED] text-[#39734C] px-3 py-1 rounded-full">
-            Crop Planning
-          </span>
-
-          <span className="text-xs text-[#617367]">
-            {selectedFarm.name}
-          </span>
+      <section className="flex flex-col justify-between gap-4 border-b border-[#E1E6DF] pb-5 md:flex-row md:items-end">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#377C52]">Crop planning</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#19382A] lg:text-3xl">
+            Plan your next rotation
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-[#718078]">
+            Choose what matters most, then review a crop plan suited to {selectedFarm.name}.
+          </p>
         </div>
-
-        <h1 className="text-2xl lg:text-3xl font-bold text-[#183D2C] font-serif">
-          Crop Rotation Planner
-        </h1>
-
-        <p className="text-sm text-[#617367] max-w-2xl">
-          Explore different crop rotations for your farm.
-          Compare their benefits, understand the risks, and
-          choose an approach that matches your goals.
-        </p>
+        <span className="text-xs font-medium text-[#718078]">Step 1 of 3 · Your goal</span>
       </section>
 
 
@@ -212,19 +203,19 @@ export default function RotationPlannerPage() {
           FARMER PRIORITY
       ========================================== */}
 
-      <section className="bg-white rounded-2xl border border-[#E8E2D2] p-5 sm:p-6 space-y-4">
+      <section className="rounded-2xl border border-[#E1E6DF] bg-white p-5 shadow-[0_2px_8px_rgba(27,61,43,0.03)] sm:p-6">
 
         <div>
-          <h2 className="font-bold text-[#183D2C]">
-            What's most important to you?
+          <h2 className="text-lg font-semibold text-[#19382A]">
+            What is most important for this season?
           </h2>
 
-          <p className="text-xs text-[#839087] mt-1">
-            Choose your main farming priority to update the suggestions.
+          <p className="mt-1 text-xs text-[#718078]">
+            We will adjust the suggestions to match your farming goal.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
 
           {priorities.map((priority) => {
             const selected = selectedPriority === priority.id;
@@ -236,12 +227,12 @@ export default function RotationPlannerPage() {
                 disabled={isGenerating}
                 className={`p-4 rounded-xl border text-left transition ${
                   selected
-                    ? "bg-[#EAF4ED] border-[#39734C] ring-1 ring-[#39734C]/20"
-                    : "bg-[#FAFAF7] border-[#E8E2D2] hover:border-[#9DBB78]"
+                    ? "bg-[#F1F7EE] border-[#377C52] ring-1 ring-[#377C52]/20"
+                    : "bg-[#FAFBF8] border-[#E1E6DF] hover:border-[#A7C77D]"
                 } ${isGenerating ? "opacity-60 cursor-wait" : ""}`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-[#183D2C]">
+                  <span className="text-sm font-semibold text-[#19382A]">
                     {priority.label}
                   </span>
 
@@ -250,7 +241,7 @@ export default function RotationPlannerPage() {
                   )}
                 </div>
 
-                <p className="text-xs text-[#617367] mt-1 leading-relaxed">
+                <p className="mt-1 text-xs leading-relaxed text-[#718078]">
                   {priority.description}
                 </p>
               </button>
@@ -260,8 +251,8 @@ export default function RotationPlannerPage() {
         </div>
 
         {isGenerating && (
-          <div className="flex items-center gap-2 text-xs text-[#39734C]">
-            <div className="w-4 h-4 border-2 border-[#39734C] border-t-transparent rounded-full animate-spin" />
+          <div className="mt-4 flex items-center gap-2 text-xs text-[#377C52]">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#377C52] border-t-transparent" />
             Updating your crop rotation options...
           </div>
         )}
@@ -276,13 +267,18 @@ export default function RotationPlannerPage() {
       <section className="space-y-4">
 
         <div>
-          <h2 className="text-lg font-bold text-[#183D2C]">
-            Compare your rotation options
+          <div className="flex items-end justify-between gap-3">
+            <div>
+          <h2 className="text-lg font-semibold text-[#19382A]">
+            Step 2 · Choose a plan
           </h2>
 
-          <p className="text-sm text-[#839087] mt-1">
-            Select a plan to explore its crop sequence and benefits.
+          <p className="mt-1 text-sm text-[#718078]">
+            Select a plan to see its crops, score, and trade-offs.
           </p>
+            </div>
+            <span className="hidden text-xs text-[#718078] sm:block">Tap a card to view details</span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -299,12 +295,12 @@ export default function RotationPlannerPage() {
                 onClick={() => setActiveStrategyIndex(index)}
                 className={`relative p-5 rounded-2xl border text-left transition flex flex-col ${
                   selected
-                    ? "bg-white border-[#39734C] ring-2 ring-[#39734C]/15 shadow-sm"
-                    : "bg-white border-[#E8E2D2] hover:border-[#9DBB78]"
+                    ? "bg-white border-[#377C52] ring-2 ring-[#377C52]/15 shadow-sm"
+                    : "bg-white border-[#E1E6DF] hover:border-[#A7C77D]"
                 }`}
               >
                 {recommended && (
-                  <span className="absolute -top-2.5 right-4 bg-[#39734C] text-white text-[10px] font-semibold px-3 py-1 rounded-full">
+                  <span className="absolute -top-2.5 right-4 rounded-full bg-[#377C52] px-3 py-1 text-[10px] font-semibold text-white">
                     Recommended
                   </span>
                 )}
@@ -374,28 +370,27 @@ export default function RotationPlannerPage() {
 
         {/* Selected strategy heading */}
 
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-5 border-b border-[#F0EDE4]">
-
+        <div className="flex flex-col justify-between gap-4 border-b border-[#F0EDE4] pb-5 sm:flex-row sm:items-start">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-wrap items-center gap-2">
               {isRecommended && (
-                <span className="text-xs font-semibold bg-[#EAF4ED] text-[#39734C] px-2.5 py-1 rounded-full">
+                <span className="rounded-full bg-[#EAF4ED] px-2.5 py-1 text-xs font-semibold text-[#39734C]">
                   Recommended for your farm
                 </span>
               )}
-
               {currentStrategy.strategy_type === "baseline" && (
-                <span className="text-xs font-medium bg-[#F1F2EE] text-[#617367] px-2.5 py-1 rounded-full">
+                <span className="rounded-full bg-[#F1F2EE] px-2.5 py-1 text-xs font-medium text-[#617367]">
                   Current approach
                 </span>
               )}
             </div>
-
-            <h2 className="text-xl sm:text-2xl font-bold text-[#183D2C] font-serif">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#377C52]">
+              Step 3 · Review this plan
+            </p>
+            <h2 className="text-xl font-semibold text-[#19382A] sm:text-2xl">
               {currentStrategy.title}
             </h2>
-
-            <p className="text-sm text-[#617367] max-w-2xl leading-relaxed">
+            <p className="max-w-2xl text-sm leading-relaxed text-[#617367]">
               {currentStrategy.summary}
             </p>
           </div>
