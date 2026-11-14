@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+:root {
+  --forest-green: #183D2C;
+  --primary-green: #39734C;
+  --sage: #9DBB78;
+  --cream: #F8F8F3;
+  --sand: #E8E2D2;
+  --app-white: #FFFFFF;
+  --app-text: #26352C;
+  --muted-text: #617367;
+  --border-sand: #DDD6C3;
+
+  --background: var(--cream);
+  --foreground: var(--app-text);
+}
+
+@theme inline {
+  --color-forest: var(--forest-green);
+  --color-primary-green: var(--primary-green);
+  --color-sage: var(--sage);
+  --color-cream: var(--cream);
+  --color-sand: var(--sand);
+  --color-text: var(--app-text);
+  --color-muted: var(--muted-text);
+  --color-border-sand: var(--border-sand);
+}
+
+body {
+  background-color: var(--cream);
+  color: var(--app-text);
+  min-height: 100vh;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-manrope), var(--font-inter), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F0EDE4;
+}
+::-webkit-scrollbar-thumb {
+  background: #C4BEAD;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A6A08D;
+}
