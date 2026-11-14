@@ -10,9 +10,7 @@ import {
   Layers,
   Scale,
   ThermometerSnowflake,
-  Database,
   FileText,
-  Settings,
   Sprout,
   Satellite,
   Compass,
@@ -36,8 +34,6 @@ const toolNavItems: NavItem[] = [
   { name: "Compare strategies", href: "/rotation-comparison", icon: Scale, badge: "MCDA" },
   { name: "Climate simulator", href: "/climate-simulator", icon: ThermometerSnowflake },
   { name: "Saved reports", href: "/reports", icon: FileText },
-  { name: "Data transparency", href: "/data-sources", icon: Database },
-  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar() {
