@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.models.database import init_db
 from app.data.seed_data import seed_database
-from app.api import farms, environment, rotations, simulation, crops, data_sources, reports
+from app.api import farms, environment, rotations, simulation, crops, data_sources, reports, auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,7 +28,7 @@ app = FastAPI(
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -42,6 +42,7 @@ app.include_router(simulation.router)
 app.include_router(crops.router)
 app.include_router(data_sources.router)
 app.include_router(reports.router)
+app.include_router(auth.router)
 
 @app.get("/health")
 def health_check():

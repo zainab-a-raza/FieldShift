@@ -232,3 +232,13 @@ export interface DataSource {
   description: string;
   documentation_url: string;
 }
+
+export interface AuthUser {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
+export interface AuthResponse {
+  user: AuthUser;
+}

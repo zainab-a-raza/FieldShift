@@ -1,11 +1,29 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useFarm } from "@/context/FarmContext";
 import { MapPin, Droplets, Wheat, ChevronDown, UserRound } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { AuthUser } from "@/types";
+import { fetchCurrentUser, signOut } from "@/lib/api";
 
 export function Header() {
   const { farms, selectedFarm, setSelectedFarm } = useFarm();
+  const router = useRouter();
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  useEffect(() => {
+    fetchCurrentUser().then(setUser).catch(() => setUser(null));
+  }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    setUser(null);
+    setProfileOpen(false);
+    router.push("/signin");
+  };
 
   return (
     <header className="h-[72px] bg-white border-b border-[#E1E6DF] px-5 lg:px-8 flex items-center justify-between sticky top-0 z-30">
@@ -58,15 +76,45 @@ export function Header() {
       </div>
 
       {/* Farmer profile */}
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#143D2B] text-white">
-          <UserRound className="h-4 w-4" />
-        </div>
-        <div className="hidden text-left sm:block">
-          <p className="text-xs font-semibold text-[#19382A]">Farmer profile</p>
-          <p className="text-[10px] text-[#718078]">Farm manager</p>
-        </div>
-        <ChevronDown className="hidden h-4 w-4 text-[#718078] sm:block" />
+      <div className="relative">
+        <button
+          type="button"
+          aria-expanded={profileOpen}
+          onClick={() => setProfileOpen((open) => !open)}
+          className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition hover:bg-[#F3F7F1]"
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#143D2B] text-white">
+            <UserRound className="h-4 w-4" />
+          </div>
+          <div className="hidden text-left sm:block">
+            <p className="text-xs font-semibold text-[#19382A]">{user?.full_name || "Farmer profile"}</p>
+            <p className="text-[10px] text-[#718078]">{user ? "Signed in" : "Sign in to save work"}</p>
+          </div>
+          <ChevronDown className={`hidden h-4 w-4 text-[#718078] transition sm:block ${profileOpen ? "rotate-180" : ""}`} />
+        </button>
+        {profileOpen && (
+          <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-[#E1E6DF] bg-white p-2 shadow-lg">
+            {user ? (
+              <>
+                <div className="border-b border-[#EDF0EB] px-3 py-2">
+                  <p className="text-xs font-semibold text-[#19382A]">{user.full_name}</p>
+                  <p className="mt-1 truncate text-[11px] text-[#718078]">{user.email}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-[#C76559] hover:bg-[#FDECEA]"
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <Link href="/signin" className="block rounded-lg px-3 py-2 text-xs font-semibold text-[#377C52] hover:bg-[#F1F7EE]">
+                Sign in or create account
+              </Link>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

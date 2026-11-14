@@ -5,9 +5,58 @@ import {
   SimulationResponse,
   CropTrait,
   DataSource,
+  AuthResponse,
+  AuthUser,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+async function authRequest(path: string, options: RequestInit = {}): Promise<Response> {
+  return fetch(`${API_BASE_URL}/api/auth${path}`, {
+    ...options,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+}
+
+export async function signIn(email: string, password: string): Promise<AuthResponse> {
+  const res = await authRequest("/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.detail || "Unable to sign in.");
+  }
+  return res.json();
+}
+
+export async function signUp(fullName: string, email: string, password: string): Promise<AuthResponse> {
+  const res = await authRequest("/signup", {
+    method: "POST",
+    body: JSON.stringify({ full_name: fullName, email, password }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.detail || "Unable to create account.");
+  }
+  return res.json();
+}
+
+export async function fetchCurrentUser(): Promise<AuthUser | null> {
+  const res = await authRequest("/me");
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error("Unable to load your profile.");
+  return res.json();
+}
+
+export async function signOut(): Promise<void> {
+  const res = await authRequest("/logout", { method: "POST" });
+  if (!res.ok) throw new Error("Unable to sign out.");
+}
 
 // Fallback demo farm when backend server is starting
 const DEFAULT_FALLBACK_FARM: Farm = {
