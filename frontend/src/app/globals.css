@@ -1,15 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --forest-green: #183D2C;
-  --primary-green: #39734C;
-  --sage: #9DBB78;
-  --cream: #F8F8F3;
-  --sand: #E8E2D2;
+  --font-dm-sans: "DM Sans";
+  --forest-green: #143d2b;
+  --primary-green: #377c52;
+  --sage: #a7c77d;
+  --cream: #f7f8f3;
+  --sand: #e8ebe4;
   --app-white: #FFFFFF;
-  --app-text: #26352C;
-  --muted-text: #617367;
-  --border-sand: #DDD6C3;
+  --app-text: #19382a;
+  --muted-text: #718078;
+  --border-sand: #dfe5dd;
 
   --background: var(--cream);
   --foreground: var(--app-text);
@@ -30,14 +31,14 @@ body {
   background-color: var(--cream);
   color: var(--app-text);
   min-height: 100vh;
-  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-manrope), var(--font-inter), sans-serif;
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
   letter-spacing: -0.02em;
 }
 
