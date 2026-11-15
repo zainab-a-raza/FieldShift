@@ -53,10 +53,10 @@ class TestAPIEndpoints(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(data["data_messages"])
         # Check provenance attached
         self.assertIn("provenance", data["temperature"])
-        self.assertEqual(data["temperature"]["provenance"]["source_name"][:10], "NASA POWER")
+        self.assertEqual(data["temperature"]["provenance"]["source_name"], "FieldShift synthetic sample dataset")
         cached_resp = await self.client.get("/api/farms/farm_kansas_01/environment")
         self.assertEqual(cached_resp.status_code, 200)
-        self.assertEqual(cached_resp.json()["cache_status"], "hit")
+        self.assertEqual(cached_resp.json()["data_status"], "demo")
 
     async def test_demo_trends_do_not_claim_observed_history(self):
         resp = await self.client.get("/api/farms/farm_kansas_01/environment/trends")

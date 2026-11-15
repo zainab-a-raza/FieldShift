@@ -111,6 +111,7 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-fadeIn space-y-6">
+      {env.is_demo_data && <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><strong>Sample data:</strong> These fictional values are for demonstration, not NASA observations or measurements of this farm.</div>}
       <section className="flex flex-col justify-between gap-4 border-b border-[#E1E6DF] pb-5 md:flex-row md:items-center">
         <div>
           <div className="flex items-center gap-2">
@@ -187,7 +188,7 @@ export default function DashboardPage() {
         <MetricCard
           label="Vegetation greenness"
           value={env.vegetation.current_ndvi.toFixed(2)}
-          detail="Current crop health from satellite imagery"
+          detail={env.is_demo_data ? "Fictional vegetation example" : "Current crop health from satellite imagery"}
           icon={Wheat}
           tone="green"
         />
@@ -211,7 +212,7 @@ export default function DashboardPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold capitalize text-[#19382A]">{alert.title}</p>
                     <p className="mt-1 text-xs leading-5 text-[#718078]">{alert.message}</p>
-                    <p className="mt-2 text-[10px] text-[#9AA69D]">Observed from NASA Earth data</p>
+                    <p className="mt-2 text-[10px] text-[#9AA69D]">{env.is_demo_data ? "Fictional sample data" : "Environmental data"}</p>
                   </div>
                 </div>
               ))
@@ -233,7 +234,7 @@ export default function DashboardPage() {
         <div className="mb-3 flex flex-wrap gap-4 text-[11px] text-[#718078]">
           <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm bg-[#4C8A58]" /> Rainfall (mm)</span>
           <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm bg-[#D99A2B]" /> Temperature (°C)</span>
-          <span className="ml-auto text-[#9AA69D]">NASA POWER · Preview</span>
+          <span className="ml-auto text-[#9AA69D]">Illustrative preview</span>
         </div>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">

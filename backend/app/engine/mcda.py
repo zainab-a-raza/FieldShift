@@ -233,13 +233,13 @@ class MCDAEngine:
 
         # Evidence from NASA POWER, SoilGrids, SMAP, etc.
         evidence.append(
-            f"NASA POWER observes {env.rainfall.annual_precipitation_mm}mm annual precipitation with {env.rainfall.max_consecutive_dry_days} maximum consecutive dry days and {env.temperature.hot_days_gt_35c} hot days (>=35°C)."
+            f"{env.rainfall.provenance.source_name}: {env.rainfall.annual_precipitation_mm}mm annual precipitation, {env.rainfall.max_consecutive_dry_days} maximum consecutive dry days and {env.temperature.hot_days_gt_35c} hot days (>=35°C)."
         )
         evidence.append(
-            f"ISRIC SoilGrids reports topsoil pH {env.soil_properties.ph_in_h2o} and organic carbon {env.soil_properties.organic_carbon_g_kg} g/kg in {env.soil_properties.depth_interval}."
+            f"{env.soil_properties.provenance.source_name}: topsoil pH {env.soil_properties.ph_in_h2o} and organic carbon {env.soil_properties.organic_carbon_g_kg} g/kg in {env.soil_properties.depth_interval}."
         )
         evidence.append(
-            f"NASA SMAP radiometric soil moisture indicates {env.soil_moisture.anomaly_status} ({env.soil_moisture.surface_soil_moisture_m3_m3} m³/m³)."
+            f"{env.soil_moisture.provenance.source_name}: soil moisture {env.soil_moisture.anomaly_status} ({env.soil_moisture.surface_soil_moisture_m3_m3} m³/m³)."
         )
 
         if strategy_type == "baseline":
@@ -273,6 +273,9 @@ class MCDAEngine:
 
         # Missing data awareness (as required by prompt PART 7)
         missing_data.append("Localized ground-truth deep aquifer drawdown rate not integrated; regional satellite proxy utilized.")
-        missing_data.append("Local microclimate frost dates derived from NASA POWER 0.5° grid; local low-lying frost pockets may vary.")
+        if env.is_demo_data:
+            missing_data.append("Synthetic sample data is not evidence of actual farm conditions; do not use these scores for real decisions.")
+        else:
+            missing_data.append("Local frost conditions may vary from coarse regional observations.")
 
         return reasons, evidence, benefits, risks, missing_data

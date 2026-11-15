@@ -1,0 +1,10 @@
+{
+  "description": "Fictional example values for interface and decision-engine testing. They are not satellite observations or farm measurements.",
+  "version": "1.0",
+  "profiles": {
+    "farm_kansas_01": {"temperature": 15.8, "rainfall": 540, "moisture": 0.22, "ndvi": 0.52, "ph": 6.8, "carbon": 14.8, "elevation": 365, "slope": 2.4},
+    "farm_punjab_02": {"temperature": 24.5, "rainfall": 710, "moisture": 0.26, "ndvi": 0.61, "ph": 7.3, "carbon": 10.5, "elevation": 240, "slope": 0.8},
+    "farm_andalusia_03": {"temperature": 19.2, "rainfall": 460, "moisture": 0.17, "ndvi": 0.43, "ph": 7.8, "carbon": 11.3, "elevation": 95, "slope": 3.5},
+    "default": {"temperature": 18.0, "rainfall": 600, "moisture": 0.21, "ndvi": 0.5, "ph": 6.9, "carbon": 13.0, "elevation": 200, "slope": 2.0}
+  }
+}

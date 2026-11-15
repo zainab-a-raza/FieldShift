@@ -254,7 +254,7 @@ export default function EnvironmentalInsightsPage() {
   // Data sources
   // --------------------------------------------------
 
-  const dataSources = [
+  const dataSources = env.is_demo_data ? [{ name: "FieldShift synthetic sample dataset", description: "Fictional example values, not measured observations" }] : [
     {
       name: "NASA POWER",
       description: "Temperature and weather conditions",
@@ -279,6 +279,7 @@ export default function EnvironmentalInsightsPage() {
 
   return (
     <div className="space-y-8 pb-10">
+      {env.is_demo_data && <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><strong>Sample data:</strong> These fictional values are for demonstration, not NASA observations or measurements of this farm.</div>}
 
       {/* ==========================================
           HEADER

@@ -146,6 +146,7 @@ export default function ReportsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn">
+      {report.report_status !== "live" && <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><strong>{report.report_status === "demo" ? "Sample data" : "Mixed data"}:</strong> {report.data_messages?.join(" ") || "Some values are not live observations."}</div>}
 
       {/* Page Header - Hidden in Print */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">

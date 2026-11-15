@@ -132,8 +132,7 @@ class StrategyGenerator:
         recommended_id = ranked[0].strategy_id
 
         notes = (
-            f"Evaluated 3 crop rotation strategies against NASA POWER agrometeorology, "
-            f"NASA SMAP soil moisture, and ISRIC SoilGrids pedometrics. "
+            f"Evaluated 3 crop rotation strategies against {'synthetic sample inputs' if env.is_demo_data else 'the available environmental inputs'}. "
             f"'{ranked[0].title}' ranked highest overall ({ranked[0].overall_score}/100) "
             f"for this farm's environmental vulnerabilities."
         )

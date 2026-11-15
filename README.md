@@ -203,7 +203,14 @@ Copy-Item .env.example .env
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The default `.env` runs in live mode. NASA POWER, USDA Soil Data Access, and
+The included `backend/.env` is set to `DEMO_MODE=true` and uses the fictional,
+editable `backend/app/data/sample_environment.json` dataset without external
+requests for environmental summaries. The named sample farms each have a
+profile; other farms use the generic example. These values are not real farm
+measurements and must not be used for agricultural decisions. Set
+`DEMO_MODE=false` and restart the backend to use live connectors instead.
+
+In live mode, NASA POWER, USDA Soil Data Access, and
 SoilGrids work without credentials. For live NASA SMAP, GPM IMERG, and SRTM
 granules, create an Earthdata bearer token and set `NASA_EARTHDATA_TOKEN` in
 `backend/.env`. Live data is discovered with NASA CMR and downloaded from the

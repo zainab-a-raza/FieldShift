@@ -18,6 +18,7 @@ from app.services.nasa_gpm import NASAGPMService
 from app.services.earth_engine import EarthEngineService
 from app.services.srtm import SRTMService
 from app.services.cache import get_json_cache, set_json_cache
+from app.services.sample_data import sample_summary
 
 router = APIRouter(prefix="/api/farms/{farm_id}", tags=["Environmental Observations"])
 
@@ -62,6 +63,9 @@ async def get_or_calculate_env_summary(farm_id: str) -> EnvironmentalSummary:
 
     if not farm:
         raise HTTPException(status_code=404, detail=f"Farm '{farm_id}' not found.")
+
+    if settings.DEMO_MODE:
+        return sample_summary(farm_id)
 
     cache_key = _environment_cache_key(farm)
     fresh = get_json_cache(cache_key)
@@ -261,6 +265,9 @@ async def get_farm_soil(farm_id: str):
     if not farm:
         raise HTTPException(status_code=404, detail=f"Farm '{farm_id}' not found.")
 
+    if settings.DEMO_MODE:
+        return sample_summary(farm_id).soil_properties
+
     soil_data = await usda_soils_svc.fetch_soil_profile(farm["latitude"], farm["longitude"])
     if soil_data is not None:
         return soil_data
@@ -276,6 +283,9 @@ async def get_farm_vegetation(farm_id: str):
 
     if not farm:
         raise HTTPException(status_code=404, detail=f"Farm '{farm_id}' not found.")
+
+    if settings.DEMO_MODE:
+        return sample_summary(farm_id).vegetation
 
     bounds = json.loads(farm["boundaries_geojson"]) if farm["boundaries_geojson"] else None
     return await ee_svc.get_vegetation_metrics(farm["latitude"], farm["longitude"], bounds)
