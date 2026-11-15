@@ -2,28 +2,27 @@
 
 import React, { useEffect, useState } from "react";
 import { fetchDataSources } from "@/lib/api";
+import { PageSkeleton } from "@/components/PageSkeleton";
 import { DataSource } from "@/types";
 import { Database, ExternalLink, ShieldCheck, CheckCircle2, Satellite, Sparkles, Info } from "lucide-react";
 
 export default function DataSourcesPage() {
   const [data, setData] = useState<{ sources: DataSource[]; transparency_principles: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDataSources()
       .then(setData)
+      .catch((reason) => setError(reason instanceof Error ? reason.message : "Data-source registry failed to load."))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading || !data) {
-    return (
-      <div className="py-20 flex flex-col items-center justify-center space-y-4">
-        <div className="w-10 h-10 border-4 border-[#39734C] border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-semibold text-[#617367]">
-          Loading Data Lineage Registry...
-        </p>
-      </div>
-    );
+  if (loading) {
+    return <PageSkeleton cards={3} detailPanels={1} />;
+  }
+  if (error || !data) {
+    return <div className="p-6 rounded-2xl bg-[#FDF2F0] border border-[#E7B8B4] text-sm text-[#8B2F2A]">{error || "No data-source registry is available."}</div>;
   }
 
   return (

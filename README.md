@@ -174,7 +174,7 @@ FieldShift/
 │   │   │   ├── climate-simulator/      # Hypothetical stress testing
 │   │   │   ├── data-sources/    # Scientific provenance directory
 │   │   │   ├── reports/         # Printable decision briefs
-│   │   │   ├── settings/        # Credentials & mission settings
+│   │   │   ├── settings/        # Read-only connector health and secure env guidance
 │   │   │   ├── layout.tsx       # Root AppShell & Sidebar
 │   │   │   └── globals.css      # Design system & Tailwind styling
 │   │   ├── components/          # Reusable UI widgets
@@ -203,16 +203,21 @@ Copy-Item .env.example .env
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The default `.env` runs in calibrated demo mode. For live NASA SMAP, GPM IMERG,
-and SRTM granules, create an Earthdata bearer token, set
-`NASA_EARTHDATA_TOKEN` in `backend/.env`, and set `DEMO_MODE=false`. Live data
-is discovered with NASA CMR and downloaded from the responsible DAAC; failed or
-missing observations fall back to clearly watermarked demo values.
+The default `.env` runs in live mode. NASA POWER, USDA Soil Data Access, and
+SoilGrids work without credentials. For live NASA SMAP, GPM IMERG, and SRTM
+granules, create an Earthdata bearer token and set `NASA_EARTHDATA_TOKEN` in
+`backend/.env`. Live data is discovered with NASA CMR and downloaded from the
+responsible DAAC; failed or missing observations remain clearly identified.
 
 NASA POWER and USDA Soil Data Access require no API key in live mode. Live
 Landsat/MODIS/VIIRS reductions require a Google Earth Engine service account;
 set `GEE_SERVICE_ACCOUNT` and `GEE_PRIVATE_KEY_FILE`. SSURGO is queried first
 for U.S. coordinates, with SoilGrids retained as the global fallback.
+
+Successful farm observations are stored in the local SQLite `data_cache` table
+for six hours, and NASA POWER trend responses for 24 hours. The browser also
+deduplicates concurrent requests, so dashboard, report, and rotation views reuse
+the first successful fetch instead of restarting every upstream request.
 *The database automatically initializes and seeds 3 realistic global holdings (Salina Prairie Farm, Punjab Research Plot, and Andalusia Field) along with the 10-crop catalog.*
 
 Interactive API documentation will be available at:  
@@ -254,8 +259,12 @@ Open your browser at:
 ## 11. Demo Mode vs. Live Stream
 
 FieldShift supports two operational modes:
-1. **Calibrated Demo Mode (Default):** Runs 100% offline or without API keys using precomputed NASA POWER and SoilGrids regional profiles. Every value is watermarked with `simulated_demo_data` to ensure scientific integrity.
-2. **Live Data Mode:** Enter your free [NASA Earthdata](https://urs.earthdata.nasa.gov/) credentials or Google Earth Engine service account in `/settings` to query live satellite granules.
+1. **Calibrated Demo Mode (Default):** Runs offline using benchmark profiles. Every metric is watermarked with `simulated_demo_data`; historical trend charts remain empty rather than presenting synthetic values as observations.
+2. **Live Data Mode:** Put Earthdata and Earth Engine credentials only in `backend/.env`, set `DEMO_MODE=false`, and restart the backend. The `/settings` screen is deliberately read-only so browser code never stores secrets.
+
+Every environmental response includes `data_status` (`live`, `mixed`, or
+`demo`) and explanatory `data_messages`. Upstream failures are disclosed and
+the frontend does not replace failed API responses with its own hidden dataset.
 
 ---
 

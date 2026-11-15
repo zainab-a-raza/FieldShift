@@ -115,6 +115,9 @@ export interface EnvironmentalSummary {
   is_demo_data: boolean;
   data_status: "live" | "mixed" | "demo";
   data_messages: string[];
+  cache_status: "miss" | "hit" | "stale";
+  cached_at: string | null;
+  cache_expires_at: string | null;
 }
 
 export interface SeasonalTrend {
@@ -141,6 +144,9 @@ export interface EnvironmentalTrends {
     source: string;
     baseline_period?: string | null;
     granularity: string;
+    cache_status?: "miss" | "hit" | "stale";
+    cached_at?: string;
+    cache_expires_at?: string;
   };
 }
 
@@ -291,8 +297,29 @@ export interface DecisionReport {
   report_status: "live" | "mixed" | "demo";
   data_messages: string[];
   decision_support_disclaimer: string;
-  farm_profile: Record<string, string | number>;
-  environmental_diagnostics: Record<string, unknown>;
+  farm_profile: {
+    name: string;
+    location: string;
+    coordinates: string;
+    area_hectares: number;
+    current_crop: string;
+    irrigation_regime: string;
+    primary_management_goal: string;
+  };
+  environmental_diagnostics: {
+    annual_rainfall_mm: number;
+    rainfall_source: string;
+    max_consecutive_dry_days: number;
+    hot_days_gt_35c: number;
+    temperature_source: string;
+    surface_soil_moisture: string;
+    soil_moisture_source: string;
+    soil_ph: number;
+    soil_organic_carbon_g_kg: number;
+    soil_properties_source: string;
+    topographic_slope: string;
+    active_alerts: EnvironmentalAlert[];
+  };
   rotation_recommendations: {
     recommended_strategy_title: string;
     recommended_score: number;

@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import { useFarm } from "@/context/FarmContext";
-import { fetchEnvironmentalSummary, fetchRotations } from "@/lib/api";
-import { EnvironmentalSummary, RotationComparisonResponse } from "@/types";
+import { fetchEnvironmentalSummary, fetchEnvironmentalTrends, fetchRotations } from "@/lib/api";
+import { EnvironmentalSummary, EnvironmentalTrends, RotationComparisonResponse } from "@/types";
 import { FarmMap } from "@/components/FarmMap";
 import { ProvenanceCard } from "@/components/ProvenanceCard";
+import { PageSkeleton } from "@/components/PageSkeleton";
 import {
   Thermometer,
   CloudRain,
@@ -37,48 +38,44 @@ export default function DashboardPage() {
   const { selectedFarm, isLoading: farmLoading } = useFarm();
   const [env, setEnv] = useState<EnvironmentalSummary | null>(null);
   const [rotations, setRotations] = useState<RotationComparisonResponse | null>(null);
+  const [trends, setTrends] = useState<EnvironmentalTrends | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedFarm) return;
     setLoading(true);
+    setError(null);
     Promise.all([
       fetchEnvironmentalSummary(selectedFarm.id),
       fetchRotations(selectedFarm.id).catch(() => null),
+      fetchEnvironmentalTrends(selectedFarm.id),
     ])
-      .then(([envData, rotData]) => {
+      .then(([envData, rotData, trendData]) => {
         setEnv(envData);
         setRotations(rotData);
+        setTrends(trendData);
       })
+      .catch((reason) => setError(reason instanceof Error ? reason.message : "Dashboard data failed to load."))
       .finally(() => setLoading(false));
   }, [selectedFarm]);
 
-  if (farmLoading || !selectedFarm || !env) {
-    return (
-      <div className="py-20 flex flex-col items-center justify-center space-y-4">
-        <div className="w-10 h-10 border-4 border-[#39734C] border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-semibold text-[#617367]">
-          Connecting to NASA Earth Data & Soil Models...
-        </p>
-      </div>
-    );
+  if (farmLoading || loading) {
+    return <PageSkeleton cards={4} detailPanels={2} />;
+  }
+  if (error || !selectedFarm || !env) {
+    return <div className="p-6 rounded-2xl bg-[#FDF2F0] border border-[#E7B8B4] text-sm text-[#8B2F2A]">{error || "No dashboard data is available."}</div>;
   }
 
-  // Trend data for mini charts
-  const weatherTrends = [
-    { month: "Jan", temp: 4.2, rain: 22, ndvi: 0.38 },
-    { month: "Feb", temp: 6.8, rain: 28, ndvi: 0.42 },
-    { month: "Mar", temp: 11.5, rain: 45, ndvi: 0.51 },
-    { month: "Apr", temp: 16.2, rain: 62, ndvi: 0.68 },
-    { month: "May", temp: 21.0, rain: 58, ndvi: 0.74 },
-    { month: "Jun", temp: 26.5, rain: 40, ndvi: 0.62 },
-    { month: "Jul", temp: 29.8, rain: 35, ndvi: 0.48 },
-    { month: "Aug", temp: 28.4, rain: 42, ndvi: 0.45 },
-    { month: "Sep", temp: 23.1, rain: 50, ndvi: 0.58 },
-    { month: "Oct", temp: 16.4, rain: 38, ndvi: 0.64 },
-    { month: "Nov", temp: 9.8, rain: 26, ndvi: 0.52 },
-    { month: "Dec", temp: 5.1, rain: 20, ndvi: 0.41 },
-  ];
+  const dates = trends?.daily_weather_series.dates || [];
+  const temperatures = trends?.daily_weather_series.t2m || [];
+  const precipitation = trends?.daily_weather_series.precipitation || [];
+  const observationCount = Math.min(dates.length, temperatures.length, precipitation.length);
+  const weatherTrends = Array.from({ length: observationCount }, (_, index) => ({
+    date: dates[index],
+    temp: temperatures[index],
+    rain: precipitation[index],
+  }));
 
   const recommendedStrategy = rotations?.strategies.find(
     (s) => s.strategy_id === rotations.recommended_strategy_id
@@ -86,6 +83,12 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 animate-fadeIn">
+      <div className={`p-4 rounded-xl border text-xs ${env.data_status === "live" ? "bg-[#EAF4ED] border-[#BCE0C8] text-[#204936]" : "bg-[#FFF7E8] border-[#E8C98B] text-[#7A4A00]"}`}>
+        <strong>Data status: {env.data_status}.</strong> {env.data_messages.length ? env.data_messages.join(" ") : "All displayed metrics report live provenance."}
+        <span className="ml-1 font-semibold">
+          {env.cache_status === "hit" ? "Loaded from the local observation cache." : env.cache_status === "stale" ? "Using the last successful cached observation while an upstream source is unavailable." : "Fresh observation request completed and cached."}
+        </span>
+      </div>
       {/* Farm Overview Header Card */}
       <div className="bg-[#FFFFFF] rounded-2xl p-6 border border-[#E8E2D2] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
@@ -154,18 +157,18 @@ export default function DashboardPage() {
           unit="C (Annual Avg)"
           subtitle={`Peak Max ${env.temperature.max_temp_c}°C • ${env.temperature.hot_days_gt_35c} hot days (≥35°C)`}
           provenance={env.temperature.provenance}
-          trendText={`Anomaly: ${env.temperature.historical_anomaly_c > 0 ? "+" : ""}${env.temperature.historical_anomaly_c}°C vs normal`}
-          isPositiveTrend={env.temperature.historical_anomaly_c <= 0}
+          trendText={env.temperature.historical_anomaly_c == null ? "Climatological anomaly unavailable" : `Anomaly: ${env.temperature.historical_anomaly_c > 0 ? "+" : ""}${env.temperature.historical_anomaly_c}°C vs 1991-2020`}
+          isPositiveTrend={env.temperature.historical_anomaly_c == null || env.temperature.historical_anomaly_c <= 0}
         />
 
         <ProvenanceCard
           title="Precipitation Total"
           value={Math.round(env.rainfall.annual_precipitation_mm)}
           unit="mm / yr"
-          subtitle={`Seasonal: ${Math.round(env.rainfall.seasonal_precipitation_mm)}mm • Max dry spell: ${env.rainfall.max_consecutive_dry_days} days`}
+          subtitle={`Latest 120 days: ${Math.round(env.rainfall.seasonal_precipitation_mm)}mm • Max dry spell: ${env.rainfall.max_consecutive_dry_days} days`}
           provenance={env.rainfall.provenance}
           trendText={`Variability: ${env.rainfall.variability_index_pct}%`}
-          isPositiveTrend={env.rainfall.rainfall_deficit_pct < 10}
+          isPositiveTrend={env.rainfall.rainfall_deficit_pct == null || env.rainfall.rainfall_deficit_pct >= -10}
         />
 
         <ProvenanceCard
@@ -198,14 +201,14 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <h3 className="text-base font-bold text-[#183D2C] flex items-center gap-2">
               <Layers className="w-4 h-4 text-[#39734C]" />
-              Satellite Field Boundary & Reflectance Layers
+              Farm Boundary Context
             </h3>
-            <span className="text-xs text-[#617367]">Resolution: 10m Multispectral</span>
+            <span className="text-xs text-[#617367]">Schematic — no raster tiles</span>
           </div>
           <FarmMap
             farm={selectedFarm}
             ndvi={env.vegetation.current_ndvi}
-            soilMoisturePercentile={env.soil_moisture.soil_moisture_percentile ?? 50}
+            soilMoisturePercentile={env.soil_moisture.soil_moisture_percentile}
           />
 
           {/* Quick Soil Properties Strip */}
@@ -325,17 +328,13 @@ export default function DashboardPage() {
           <div>
             <h3 className="text-base font-bold text-[#183D2C] flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[#39734C]" />
-              Annual Agroclimatic Profile & Vegetation Cycle
+              Recent NASA POWER Daily Weather
             </h3>
             <p className="text-xs text-[#617367]">
-              NASA POWER weather integrated with Landsat, MODIS, and VIIRS NDVI observations
+              {trends?.is_demo ? "Demo daily series — not observed weather" : "Latest available point-grid observations from NASA POWER"}
             </p>
           </div>
           <div className="flex items-center gap-4 text-xs font-medium">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-[#39734C]"></span>
-              NDVI (x100)
-            </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-[#D97706]"></span>
               Temp (°C)
@@ -347,11 +346,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="h-64 w-full">
+        {weatherTrends.length ? <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={weatherTrends}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F0EDE4" />
-              <XAxis dataKey="month" stroke="#617367" fontSize={11} />
+              <XAxis dataKey="date" stroke="#617367" fontSize={11} tickFormatter={(value) => String(value).slice(4)} />
               <YAxis stroke="#617367" fontSize={11} />
               <Tooltip
                 contentStyle={{
@@ -363,17 +362,9 @@ export default function DashboardPage() {
               />
               <Line type="monotone" dataKey="temp" stroke="#D97706" strokeWidth={2.5} dot={{ r: 3 }} name="Avg Temp (°C)" />
               <Line type="monotone" dataKey="rain" stroke="#64B4DC" strokeWidth={2} dot={{ r: 2 }} name="Precipitation (mm)" />
-              <Line
-                type="monotone"
-                dataKey={(d) => Math.round(d.ndvi * 100)}
-                stroke="#39734C"
-                strokeWidth={2.5}
-                dot={{ r: 3 }}
-                name="NDVI Index (x100)"
-              />
             </LineChart>
           </ResponsiveContainer>
-        </div>
+        </div> : <div className="p-6 rounded-xl bg-[#F8F8F3] border border-[#DDD6C3] text-sm text-[#617367]">No daily weather chart is available. No substitute series was generated by the frontend.</div>}
       </div>
     </div>
   );

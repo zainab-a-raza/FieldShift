@@ -5,7 +5,7 @@ rotation strategies, and data provenance citations.
 """
 from fastapi import APIRouter, HTTPException
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from app.models.database import get_connection
 from app.api.environment import get_or_calculate_env_summary
 from app.api.rotations import get_farm_rotations
@@ -56,8 +56,8 @@ async def generate_farm_report(farm_id: str):
         })
 
     return {
-        "report_id": f"REP-{farm_id.upper()}-{datetime.utcnow().strftime('%Y%m%d')}",
-        "generated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "report_id": f"REP-{farm_id.upper()}-{datetime.now(timezone.utc).strftime('%Y%m%d')}",
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
         "report_status": env.data_status,
         "data_messages": env.data_messages,
         "decision_support_disclaimer": (

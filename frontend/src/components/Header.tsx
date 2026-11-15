@@ -62,9 +62,9 @@ export function Header() {
       <div className="flex items-center gap-3">
         {/* Transparent Provenance & Demo Mode Badge */}
         <div className="flex items-center gap-2 bg-[#F8F8F3] px-3 py-1.5 rounded-full border border-[#DDD6C3] text-xs">
-          <span className={`w-2 h-2 rounded-full ${error ? "bg-[#B83E38]" : isDemoMode ? "bg-[#D97706]" : "bg-[#39734C]"}`}></span>
+          <span className={`w-2 h-2 rounded-full ${error ? "bg-[#B83E38]" : !health ? "bg-[#86958B]" : isDemoMode ? "bg-[#D97706]" : "bg-[#39734C]"}`}></span>
           <span className="font-medium text-[#26352C]">
-            {error ? "Backend unavailable" : isDemoMode ? "Demo mode" : "Live mode with explicit fallbacks"}
+            {error ? "Backend unavailable" : !health ? "Checking data mode" : isDemoMode ? "Demo mode" : "Live mode with explicit fallbacks"}
           </span>
           <span className="text-[10px] bg-[#E8E2D2] text-[#26352C] px-1.5 py-0.5 rounded font-mono font-medium">
             {health?.data_mode || "status unknown"}

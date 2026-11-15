@@ -141,6 +141,9 @@ class EnvironmentalSummary(BaseModel):
     is_demo_data: bool
     data_status: str = Field(..., description="live, mixed, or demo")
     data_messages: List[str] = Field(default_factory=list)
+    cache_status: str = Field("miss", description="miss, hit, or stale")
+    cached_at: Optional[str] = None
+    cache_expires_at: Optional[str] = None
 
 # --- Recommendation Schemas ---
 

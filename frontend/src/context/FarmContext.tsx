@@ -27,9 +27,15 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const loadHealth = async () => {
-    const status = await fetchHealth();
-    setHealth(status);
-    setIsDemoMode(status.demo_mode);
+    try {
+      const status = await fetchHealth();
+      setHealth(status);
+      setIsDemoMode(status.demo_mode);
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "System status failed to load.";
+      setError(message);
+      throw reason;
+    }
   };
 
   const loadFarms = async () => {

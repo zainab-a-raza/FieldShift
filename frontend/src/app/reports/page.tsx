@@ -3,18 +3,23 @@
 import React, { useEffect, useState } from "react";
 import { useFarm } from "@/context/FarmContext";
 import { fetchReport } from "@/lib/api";
+import { PageSkeleton } from "@/components/PageSkeleton";
+import { DecisionReport } from "@/types";
 import { FileText, Printer, Download, CheckCircle2, ShieldCheck, MapPin, Wheat, Droplets } from "lucide-react";
 
 export default function ReportsPage() {
   const { selectedFarm } = useFarm();
-  const [report, setReport] = useState<any>(null);
+  const [report, setReport] = useState<DecisionReport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedFarm) return;
     setLoading(true);
+    setError(null);
     fetchReport(selectedFarm.id)
       .then(setReport)
+      .catch((reason) => setError(reason instanceof Error ? reason.message : "Report failed to load."))
       .finally(() => setLoading(false));
   }, [selectedFarm]);
 
@@ -22,15 +27,11 @@ export default function ReportsPage() {
     window.print();
   };
 
-  if (loading || !report || !selectedFarm) {
-    return (
-      <div className="py-20 flex flex-col items-center justify-center space-y-4">
-        <div className="w-10 h-10 border-4 border-[#39734C] border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-semibold text-[#617367]">
-          Assembling Agricultural Decision Report...
-        </p>
-      </div>
-    );
+  if (loading) {
+    return <PageSkeleton cards={3} detailPanels={2} />;
+  }
+  if (error || !report || !selectedFarm) {
+    return <div className="p-6 rounded-2xl bg-[#FDF2F0] border border-[#E7B8B4] text-sm text-[#8B2F2A]">{error || "No report is available."}</div>;
   }
 
   return (
@@ -42,7 +43,7 @@ export default function ReportsPage() {
             Agricultural Decision Report
           </h2>
           <p className="text-xs text-[#617367]">
-            Official exportable decision brief for farm advisors, agronomists, and agricultural credit assessments.
+            Exportable decision-support draft with metric-level provenance and data-quality disclosure.
           </p>
         </div>
 
@@ -59,6 +60,9 @@ export default function ReportsPage() {
 
       {/* Printable Report Canvas */}
       <div className="bg-[#FFFFFF] rounded-2xl p-8 lg:p-10 border border-[#E8E2D2] shadow-sm space-y-8 print:border-none print:shadow-none print:p-0">
+        <div className={`p-4 rounded-xl border text-xs ${report.report_status === "live" ? "bg-[#EAF4ED] border-[#BCE0C8]" : "bg-[#FFF7E8] border-[#E8C98B]"}`}>
+          <strong>Report data status: {report.report_status}.</strong> {report.data_messages.join(" ")}
+        </div>
         {/* Report Official Banner */}
         <div className="flex items-start justify-between border-b-2 border-[#183D2C] pb-6">
           <div>
@@ -124,24 +128,24 @@ export default function ReportsPage() {
             <div className="p-3 rounded-xl bg-[#F8F8F3] border border-[#DDD6C3]">
               <span className="text-[#617367] block text-[11px]">Annual Precipitation:</span>
               <strong className="text-sm text-[#183D2C]">{report.environmental_diagnostics.annual_rainfall_mm} mm</strong>
-              <span className="text-[10px] text-[#617367] block">NASA POWER</span>
+              <span className="text-[10px] text-[#617367] block">{report.environmental_diagnostics.rainfall_source}</span>
             </div>
             <div className="p-3 rounded-xl bg-[#F8F8F3] border border-[#DDD6C3]">
               <span className="text-[#617367] block text-[11px]">Heat Stress Exposure:</span>
               <strong className="text-sm text-[#183D2C]">{report.environmental_diagnostics.hot_days_gt_35c} days (≥35°C)</strong>
-              <span className="text-[10px] text-[#617367] block">MERRA-2 Model</span>
+              <span className="text-[10px] text-[#617367] block">{report.environmental_diagnostics.temperature_source}</span>
             </div>
             <div className="p-3 rounded-xl bg-[#F8F8F3] border border-[#DDD6C3]">
               <span className="text-[#617367] block text-[11px]">Soil Moisture:</span>
               <strong className="text-sm text-[#183D2C]">{report.environmental_diagnostics.surface_soil_moisture}</strong>
-              <span className="text-[10px] text-[#617367] block">NASA SMAP (9km)</span>
+              <span className="text-[10px] text-[#617367] block">{report.environmental_diagnostics.soil_moisture_source}</span>
             </div>
             <div className="p-3 rounded-xl bg-[#F8F8F3] border border-[#DDD6C3]">
               <span className="text-[#617367] block text-[11px]">Topsoil pH / SOC:</span>
               <strong className="text-sm text-[#183D2C]">
                 {report.environmental_diagnostics.soil_ph} pH • {report.environmental_diagnostics.soil_organic_carbon_g_kg} g/kg
               </strong>
-              <span className="text-[10px] text-[#617367] block">SSURGO / SoilGrids</span>
+              <span className="text-[10px] text-[#617367] block">{report.environmental_diagnostics.soil_properties_source}</span>
             </div>
           </div>
         </div>
@@ -161,8 +165,11 @@ export default function ReportsPage() {
               </span>
             </div>
             <p className="text-xs text-[#204936] leading-relaxed">
-              This strategy introduces drought-tolerant pulses and deep rooting systems to address root-zone moisture deficits observed in NASA SMAP data while reversing soil organic carbon depletion.
+              {report.rotation_recommendations.recommended_summary}
             </p>
+            <ul className="list-disc pl-5 text-xs text-[#204936] space-y-1">
+              {report.rotation_recommendations.recommended_reasons.map((reason) => <li key={reason}>{reason}</li>)}
+            </ul>
           </div>
         </div>
 
@@ -172,7 +179,7 @@ export default function ReportsPage() {
             4. Comparative Strategy Overview
           </h3>
           <div className="space-y-2 text-xs">
-            {report.rotation_recommendations.strategies_overview.map((strat: any, i: number) => (
+            {report.rotation_recommendations.strategies_overview.map((strat, i) => (
               <div key={i} className="p-3.5 rounded-xl bg-[#F8F8F3] border border-[#DDD6C3] flex items-center justify-between">
                 <div>
                   <strong className="text-sm text-[#183D2C] block">{strat.title}</strong>
@@ -192,13 +199,14 @@ export default function ReportsPage() {
           <span className="font-bold text-[#26352C] block text-[11px] uppercase tracking-wider">
             Scientific Provenance & Citations:
           </span>
-          {report.scientific_provenance_citations.map((cite: string, i: number) => (
-            <p key={i} className="text-[11px] leading-relaxed">
-              [{i + 1}] {cite}
-            </p>
+          {report.scientific_provenance_citations.map((cite, i) => (
+            <div key={`${cite.metric}-${i}`} className="text-[11px] leading-relaxed">
+              <p>[{i + 1}] <strong>{cite.metric}:</strong> {cite.source}, {cite.product} — quality: {cite.quality_flag}{cite.is_demo ? " (demo)" : ""}.</p>
+              <p className="text-[10px]">{cite.details}{cite.citation ? ` Citation: ${cite.citation}` : ""}</p>
+            </div>
           ))}
           <p className="text-[10px] italic pt-2 text-[#86958B]">
-            FieldShift is designed to support farmer judgment rather than replace local agricultural expertise.
+            {report.decision_support_disclaimer}
           </p>
         </div>
       </div>

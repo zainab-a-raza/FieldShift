@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useFarm } from "@/context/FarmContext";
 import { fetchRotations, generateCustomRotations } from "@/lib/api";
+import { PageSkeleton } from "@/components/PageSkeleton";
 import { RotationComparisonResponse } from "@/types";
 import {
   Scale,
@@ -41,6 +42,7 @@ export default function RotationComparisonPage() {
   const { selectedFarm } = useFarm();
   const [data, setData] = useState<RotationComparisonResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Dynamic weight sliders
   const [weights, setWeights] = useState({
@@ -57,8 +59,10 @@ export default function RotationComparisonPage() {
   useEffect(() => {
     if (!selectedFarm) return;
     setLoading(true);
+    setError(null);
     fetchRotations(selectedFarm.id)
       .then(setData)
+      .catch((reason) => setError(reason instanceof Error ? reason.message : "Rotation comparison failed to load."))
       .finally(() => setLoading(false));
   }, [selectedFarm]);
 
@@ -88,15 +92,11 @@ export default function RotationComparisonPage() {
     }
   };
 
-  if (loading || !data || !selectedFarm) {
-    return (
-      <div className="py-20 flex flex-col items-center justify-center space-y-4">
-        <div className="w-10 h-10 border-4 border-[#39734C] border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-semibold text-[#617367]">
-          Assembling Multi-Criteria Radar Matrices...
-        </p>
-      </div>
-    );
+  if (loading) {
+    return <PageSkeleton cards={3} detailPanels={2} />;
+  }
+  if (error || !data || !selectedFarm) {
+    return <div className="p-6 rounded-2xl bg-[#FDF2F0] border border-[#E7B8B4] text-sm text-[#8B2F2A]">{error || "No rotation comparison is available."}</div>;
   }
 
   const baseline = data.strategies[0];

@@ -12,7 +12,13 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001"
     
     # Mode control
-    DEMO_MODE: bool = True
+    DEMO_MODE: bool = False
+
+    # Successful external observations are persisted locally so repeated page
+    # visits do not start every NASA/soil request from scratch.
+    ENVIRONMENT_CACHE_TTL_SECONDS: int = 21600
+    TREND_CACHE_TTL_SECONDS: int = 86400
+    STALE_CACHE_GRACE_SECONDS: int = 604800
     
     # External APIs
     NASA_EARTHDATA_USERNAME: str = ""

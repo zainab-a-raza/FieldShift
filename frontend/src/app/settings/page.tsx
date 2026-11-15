@@ -13,6 +13,8 @@ export default function SettingsPage() {
     setRefreshing(true);
     try {
       await refreshSystemStatus();
+    } catch {
+      // FarmContext exposes the backend error in the status panel.
     } finally {
       setRefreshing(false);
     }

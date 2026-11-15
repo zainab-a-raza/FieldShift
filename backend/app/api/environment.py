@@ -4,6 +4,7 @@ Connects NASA POWER, SMAP, GPM IMERG, Landsat/MODIS/VIIRS, SSURGO/SoilGrids, and
 """
 from fastapi import APIRouter, HTTPException
 from typing import Dict, Any, List
+import asyncio
 import json
 from datetime import datetime, timezone
 from app.models.database import get_connection
@@ -16,6 +17,7 @@ from app.services.nasa_smap import NASASMAPService
 from app.services.nasa_gpm import NASAGPMService
 from app.services.earth_engine import EarthEngineService
 from app.services.srtm import SRTMService
+from app.services.cache import get_json_cache, set_json_cache
 
 router = APIRouter(prefix="/api/farms/{farm_id}", tags=["Environmental Observations"])
 
@@ -27,6 +29,30 @@ gpm_svc = NASAGPMService()
 ee_svc = EarthEngineService()
 srtm_svc = SRTMService()
 
+_environment_locks: Dict[str, asyncio.Lock] = {}
+_trend_locks: Dict[str, asyncio.Lock] = {}
+
+
+def _environment_cache_key(farm: Any) -> str:
+    connector_profile = (
+        f"earthdata={bool(settings.NASA_EARTHDATA_TOKEN)}:"
+        f"gee={bool(settings.GEE_SERVICE_ACCOUNT and settings.GEE_PRIVATE_KEY_FILE)}"
+    )
+    return (
+        f"environment:v3:{farm['id']}:{farm['updated_at']}:"
+        f"demo={settings.DEMO_MODE}:{connector_profile}"
+    )
+
+
+def _cached_summary(entry: Any) -> EnvironmentalSummary:
+    summary = EnvironmentalSummary.model_validate(entry.payload)
+    return summary.model_copy(update={
+        "cache_status": "stale" if entry.is_stale else "hit",
+        "cached_at": entry.fetched_at,
+        "cache_expires_at": entry.expires_at,
+    })
+
+
 async def get_or_calculate_env_summary(farm_id: str) -> EnvironmentalSummary:
     conn = get_connection()
     cursor = conn.cursor()
@@ -37,6 +63,41 @@ async def get_or_calculate_env_summary(farm_id: str) -> EnvironmentalSummary:
     if not farm:
         raise HTTPException(status_code=404, detail=f"Farm '{farm_id}' not found.")
 
+    cache_key = _environment_cache_key(farm)
+    fresh = get_json_cache(cache_key)
+    if fresh is not None:
+        return _cached_summary(fresh)
+
+    lock = _environment_locks.setdefault(cache_key, asyncio.Lock())
+    async with lock:
+        # Several pages can request the same farm at once. Only the first caller
+        # performs upstream work; the others consume its newly persisted entry.
+        fresh = get_json_cache(cache_key)
+        if fresh is not None:
+            return _cached_summary(fresh)
+        try:
+            summary = await _calculate_env_summary(farm_id, farm)
+        except Exception:
+            stale = get_json_cache(
+                cache_key,
+                allow_stale_seconds=settings.STALE_CACHE_GRACE_SECONDS,
+            )
+            if stale is not None:
+                return _cached_summary(stale)
+            raise
+
+        entry = set_json_cache(
+            cache_key,
+            summary.model_dump(mode="json"),
+            ttl_seconds=settings.ENVIRONMENT_CACHE_TTL_SECONDS,
+        )
+        return summary.model_copy(update={
+            "cache_status": "miss",
+            "cached_at": entry.fetched_at,
+            "cache_expires_at": entry.expires_at,
+        })
+
+async def _calculate_env_summary(farm_id: str, farm: Any) -> EnvironmentalSummary:
     lat = farm["latitude"]
     lon = farm["longitude"]
     bounds = json.loads(farm["boundaries_geojson"]) if farm["boundaries_geojson"] else None
@@ -128,30 +189,66 @@ async def get_environment_summary(farm_id: str):
 async def get_environmental_trends(farm_id: str):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT latitude, longitude FROM farms WHERE id = ?", (farm_id,))
+    cursor.execute("SELECT id, latitude, longitude, updated_at FROM farms WHERE id = ?", (farm_id,))
     farm = cursor.fetchone()
     conn.close()
 
     if not farm:
         raise HTTPException(status_code=404, detail=f"Farm '{farm_id}' not found.")
 
-    power_data = await nasa_power_svc.fetch_daily_agrometeorology(farm["latitude"], farm["longitude"])
-    raw_series = power_data.get("raw_time_series", {})
-    trend_data = await nasa_power_svc.fetch_seasonal_trends(farm["latitude"], farm["longitude"])
+    cache_key = (
+        f"environment-trends:v2:{farm_id}:{farm['updated_at']}:"
+        f"demo={settings.DEMO_MODE}"
+    )
+    cached = get_json_cache(cache_key)
+    if cached is not None:
+        payload = cached.payload
+        payload["metadata"]["cache_status"] = "hit"
+        payload["metadata"]["cached_at"] = cached.fetched_at
+        payload["metadata"]["cache_expires_at"] = cached.expires_at
+        return payload
 
-    return {
-        "farm_id": farm_id,
-        "daily_weather_series": raw_series,
-        "historical_seasonal_comparison": trend_data["seasons"],
-        "status": trend_data["status"],
-        "is_demo": trend_data["is_demo"],
-        "message": trend_data["message"],
-        "metadata": {
-            "source": trend_data["source"],
-            "baseline_period": trend_data.get("baseline_period"),
-            "granularity": "Daily recent series and six-month seasonal aggregates",
-        },
-    }
+    lock = _trend_locks.setdefault(cache_key, asyncio.Lock())
+    async with lock:
+        cached = get_json_cache(cache_key)
+        if cached is not None:
+            payload = cached.payload
+            payload["metadata"]["cache_status"] = "hit"
+            payload["metadata"]["cached_at"] = cached.fetched_at
+            payload["metadata"]["cache_expires_at"] = cached.expires_at
+            return payload
+
+        power_data = await nasa_power_svc.fetch_daily_agrometeorology(farm["latitude"], farm["longitude"])
+        raw_series = power_data.get("raw_time_series", {})
+        trend_data = await nasa_power_svc.fetch_seasonal_trends(farm["latitude"], farm["longitude"])
+
+        payload = {
+            "farm_id": farm_id,
+            "daily_weather_series": raw_series,
+            "historical_seasonal_comparison": trend_data["seasons"],
+            "status": trend_data["status"],
+            "is_demo": trend_data["is_demo"],
+            "message": trend_data["message"],
+            "metadata": {
+                "source": trend_data["source"],
+                "baseline_period": trend_data.get("baseline_period"),
+                "granularity": "Daily recent series and six-month seasonal aggregates",
+                "cache_status": "miss",
+            },
+        }
+        is_live_payload = (
+            not power_data["temperature"].provenance.is_demo
+            and trend_data["status"] == "live"
+        )
+        if is_live_payload:
+            entry = set_json_cache(
+                cache_key,
+                payload,
+                ttl_seconds=settings.TREND_CACHE_TTL_SECONDS,
+            )
+            payload["metadata"]["cached_at"] = entry.fetched_at
+            payload["metadata"]["cache_expires_at"] = entry.expires_at
+        return payload
 
 @router.get("/soil", response_model=SoilPropertiesMetrics)
 async def get_farm_soil(farm_id: str):

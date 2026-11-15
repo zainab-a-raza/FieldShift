@@ -5,6 +5,7 @@ import { useFarm } from "@/context/FarmContext";
 import { fetchEnvironmentalSummary, fetchEnvironmentalTrends } from "@/lib/api";
 import { EnvironmentalSummary, EnvironmentalTrends } from "@/types";
 import { ProvenanceCard } from "@/components/ProvenanceCard";
+import { PageSkeleton } from "@/components/PageSkeleton";
 import {
   Thermometer,
   CloudRain,
@@ -55,14 +56,7 @@ export default function EnvironmentalInsightsPage() {
   }, [selectedFarm]);
 
   if (loading) {
-    return (
-      <div className="py-20 flex flex-col items-center justify-center space-y-4">
-        <div className="w-10 h-10 border-4 border-[#39734C] border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-semibold text-[#617367]">
-          Retrieving Multi-Mission NASA Observations...
-        </p>
-      </div>
-    );
+    return <PageSkeleton cards={4} detailPanels={2} />;
   }
   if (error || !env || !selectedFarm) {
     return <div className="p-6 rounded-2xl bg-[#FDF2F0] border border-[#E7B8B4] text-sm text-[#8B2F2A]">{error || "No environmental data is available."}</div>;
@@ -109,7 +103,7 @@ export default function EnvironmentalInsightsPage() {
           title="Total Precipitation"
           value={Math.round(env.rainfall.annual_precipitation_mm)}
           unit="mm / yr"
-          subtitle={`Seasonal ${Math.round(env.rainfall.seasonal_precipitation_mm)}mm • ${env.rainfall.heavy_rain_events_gt_25mm} heavy rain bursts (>25mm)`}
+          subtitle={`Latest 120 days ${Math.round(env.rainfall.seasonal_precipitation_mm)}mm • ${env.rainfall.heavy_rain_events_gt_25mm} heavy rain bursts (>25mm)`}
           provenance={env.rainfall.provenance}
           trendText={env.rainfall.rainfall_deficit_pct == null ? "Climatological anomaly unavailable" : `Anomaly vs 1991-2020: ${env.rainfall.rainfall_deficit_pct > 0 ? "+" : ""}${env.rainfall.rainfall_deficit_pct}%`}
           isPositiveTrend={env.rainfall.rainfall_deficit_pct == null || env.rainfall.rainfall_deficit_pct >= -10}
@@ -131,7 +125,7 @@ export default function EnvironmentalInsightsPage() {
           title="Vegetation Index (NDVI)"
           value={env.vegetation.current_ndvi.toFixed(2)}
           unit="NDVI"
-          subtitle={`Historical Mean: ${env.vegetation.mean_historical_ndvi} • Peak Vigour: ${env.vegetation.peak_season_ndvi}`}
+          subtitle={`18-month Mean: ${env.vegetation.mean_historical_ndvi} • 18-month Peak: ${env.vegetation.peak_season_ndvi}`}
           provenance={env.vegetation.provenance}
           trendText={`18-month anomaly: ${env.vegetation.ndvi_anomaly > 0 ? "+" : ""}${env.vegetation.ndvi_anomaly}`}
           isPositiveTrend={env.vegetation.ndvi_anomaly >= 0}
@@ -173,11 +167,11 @@ export default function EnvironmentalInsightsPage() {
           <div className="flex items-center gap-4 text-xs">
             <span className="flex items-center gap-1.5 font-medium">
               <span className="w-3 h-3 rounded-md bg-[#39734C]"></span>
-              Observed Rainfall (mm)
+              Recent POWER rainfall (mm)
             </span>
             <span className="flex items-center gap-1.5 font-medium">
               <span className="w-3 h-3 rounded-md bg-[#DDD6C3]"></span>
-              Historical Normal (mm)
+              1991-2020 POWER normal (mm)
             </span>
           </div>
         </div>

@@ -63,7 +63,13 @@ class NASAPowerService:
         try:
             daily_task = self._request_json(self.base_url, params)
             baseline_task = self._get_climate_baseline(latitude, longitude)
-            data, baseline = await asyncio.gather(daily_task, baseline_task)
+            data_result, baseline_result = await asyncio.gather(
+                daily_task, baseline_task, return_exceptions=True
+            )
+            if isinstance(data_result, Exception):
+                raise data_result
+            data = data_result
+            baseline = None if isinstance(baseline_result, Exception) else baseline_result
             return self._process_nasa_response(
                 data, latitude, longitude, start_date, end_date,
                 is_live=True, climate_baseline=baseline,
@@ -162,7 +168,11 @@ class NASAPowerService:
             quality_flag=DataQualityFlag.OPTIMAL if is_live else DataQualityFlag.SIMULATED_DEMO,
             is_demo=not is_live,
             citation="NASA Langley Research Center POWER Project",
-            notes="Meteorological parameters are derived from NASA GMAO MERRA-2 assimilation."
+            notes=(
+                "Meteorological parameters are derived from NASA GMAO MERRA-2 assimilation. "
+                + ("Anomaly uses the coordinate-specific 1991-2020 POWER baseline."
+                   if climate_baseline else "Climatological baseline was unavailable; anomaly is null.")
+            )
         )
 
         rain_prov = create_provenance(
@@ -177,8 +187,18 @@ class NASAPowerService:
             observation_end=end_date,
             quality_flag=DataQualityFlag.OPTIMAL if is_live else DataQualityFlag.SIMULATED_DEMO,
             is_demo=not is_live,
-            citation="GMAO MERRA-2 Global Modeling and Assimilation Office"
+            citation="GMAO MERRA-2 Global Modeling and Assimilation Office",
+            notes=(
+                "Annual total is the latest 365 daily values; the secondary total is the latest 120 days. "
+                + ("Anomaly uses the coordinate-specific 1991-2020 POWER baseline."
+                   if climate_baseline else "Climatological baseline was unavailable; anomaly is null.")
+            ),
         )
+
+        recent_keys = [
+            key for key in t2m_series.keys()
+            if t2m_series.get(key, -999) > -100 and prec_series.get(key, -999) >= 0
+        ][-30:]
 
         return {
             "temperature": TemperatureMetrics(
@@ -212,9 +232,9 @@ class NASAPowerService:
                 provenance=rain_prov
             ),
             "raw_time_series": {
-                "dates": list(t2m_series.keys())[-30:],
-                "t2m": [t2m_series[k] for k in list(t2m_series.keys())[-30:] if t2m_series[k] > -100],
-                "precipitation": [prec_series[k] for k in list(prec_series.keys())[-30:] if prec_series[k] >= 0]
+                "dates": recent_keys,
+                "t2m": [t2m_series[k] for k in recent_keys],
+                "precipitation": [prec_series[k] for k in recent_keys],
             }
         }
 

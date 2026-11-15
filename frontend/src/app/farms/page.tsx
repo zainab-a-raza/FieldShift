@@ -6,7 +6,7 @@ import Link from "next/link";
 import { MapPin, Plus, Wheat, Droplets, CheckCircle, ArrowRight, Layers, Shield } from "lucide-react";
 
 export default function FarmsListPage() {
-  const { farms, selectedFarm, setSelectedFarm, isLoading } = useFarm();
+  const { farms, selectedFarm, setSelectedFarm, isLoading, error } = useFarm();
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -29,6 +29,8 @@ export default function FarmsListPage() {
           <span>Register New Holding</span>
         </Link>
       </div>
+
+      {error && <div className="p-4 rounded-xl bg-[#FDF2F0] border border-[#E7B8B4] text-sm text-[#8B2F2A]">{error}</div>}
 
       {/* Farms Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

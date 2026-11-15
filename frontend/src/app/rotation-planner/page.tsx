@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useFarm } from "@/context/FarmContext";
 import { fetchRotations, generateCustomRotations } from "@/lib/api";
+import { PageSkeleton } from "@/components/PageSkeleton";
 import { RotationComparisonResponse, RotationStrategy } from "@/types";
 import {
   Layers,
@@ -23,6 +24,7 @@ export default function RotationPlannerPage() {
   const { selectedFarm } = useFarm();
   const [rotations, setRotations] = useState<RotationComparisonResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeStrategyIndex, setActiveStrategyIndex] = useState(0);
   const [selectedPriority, setSelectedPriority] = useState<string>("balanced");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -30,11 +32,13 @@ export default function RotationPlannerPage() {
   useEffect(() => {
     if (!selectedFarm) return;
     setLoading(true);
+    setError(null);
     fetchRotations(selectedFarm.id)
       .then((data) => {
         setRotations(data);
         setSelectedPriority(selectedFarm.primary_priority);
       })
+      .catch((reason) => setError(reason instanceof Error ? reason.message : "Rotation plan failed to load."))
       .finally(() => setLoading(false));
   }, [selectedFarm]);
 
@@ -52,15 +56,11 @@ export default function RotationPlannerPage() {
     }
   };
 
-  if (loading || !rotations || !selectedFarm) {
-    return (
-      <div className="py-20 flex flex-col items-center justify-center space-y-4">
-        <div className="w-10 h-10 border-4 border-[#39734C] border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-semibold text-[#617367]">
-          Synthesizing Crop Rotation Sequences via Multi-Criteria Decision Engine...
-        </p>
-      </div>
-    );
+  if (loading) {
+    return <PageSkeleton cards={3} detailPanels={2} />;
+  }
+  if (error || !rotations || !selectedFarm) {
+    return <div className="p-6 rounded-2xl bg-[#FDF2F0] border border-[#E7B8B4] text-sm text-[#8B2F2A]">{error || "No rotation plan is available."}</div>;
   }
 
   const currentStrategy = rotations.strategies[activeStrategyIndex] || rotations.strategies[0];

@@ -22,6 +22,8 @@ from app.services.nasa_smap import NASASMAPService
 from app.services.nasa_gpm import NASAGPMService
 from app.services.srtm import SRTMService
 from app.services.usda_soils import USDASoilDataService
+from app.services.nasa_power import NASAPowerService
+from app.services.cache import delete_json_cache, get_json_cache, set_json_cache
 
 def get_mock_environment():
     prov = create_provenance("test", "test", "NASA Test", "v1", DataOriginType.DIRECT_SATELLITE, "10m", "units")
@@ -62,7 +64,9 @@ def get_mock_environment():
             provenance=prov
         ),
         environmental_alerts=[],
-        is_demo_data=False
+        is_demo_data=False,
+        data_status="live",
+        data_messages=[],
     )
 
 def get_mock_crops():
@@ -221,6 +225,29 @@ class TestFieldShiftEngine(unittest.TestCase):
         self.assertAlmostEqual(soil.bulk_density_cg_cm3, 133.3, places=1)
         self.assertFalse(soil.provenance.is_demo)
         self.assertIn("SSURGO/STATSGO2", soil.provenance.source_name)
+
+    def test_power_monthly_parser_converts_precipitation_rate_to_total(self):
+        payload = {
+            "properties": {"parameter": {
+                "T2M": {"202301": 10.0, "202302": 12.0, "202313": 11.0},
+                "PRECTOTCORR": {"202301": 2.0, "202302": 1.0, "202313": 1.5},
+            }}
+        }
+        parsed = NASAPowerService._parse_monthly_response(payload)
+        self.assertEqual(parsed[(2023, 1)]["precipitation_mm"], 62.0)
+        self.assertEqual(parsed[(2023, 2)]["precipitation_mm"], 28.0)
+        self.assertNotIn((2023, 13), parsed)
+
+    def test_durable_json_cache_round_trip(self):
+        cache_key = "test:durable-cache-round-trip"
+        delete_json_cache(cache_key)
+        written = set_json_cache(cache_key, {"source": "NASA", "value": 42}, ttl_seconds=60)
+        cached = get_json_cache(cache_key)
+        self.assertIsNotNone(cached)
+        self.assertEqual(cached.payload, {"source": "NASA", "value": 42})
+        self.assertEqual(cached.fetched_at, written.fetched_at)
+        self.assertFalse(cached.is_stale)
+        delete_json_cache(cache_key)
 
 if __name__ == "__main__":
     unittest.main()

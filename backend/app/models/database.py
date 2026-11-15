@@ -76,6 +76,17 @@ def init_db():
     )
     """)
 
+    # Durable external-data response cache. Keeping this in SQLite means a
+    # backend restart or browser refresh can reuse a successful NASA response.
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS data_cache (
+        cache_key TEXT PRIMARY KEY,
+        payload_json TEXT NOT NULL,
+        fetched_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+    )
+    """)
+
     conn.commit()
     conn.close()
 
