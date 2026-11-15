@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { useFarm } from "@/context/FarmContext";
-import { fetchEnvironmentalSummary } from "@/lib/api";
-import { EnvironmentalSummary } from "@/types";
+import { fetchEnvironmentalSummary, fetchEnvironmentalTrends } from "@/lib/api";
+import { EnvironmentalSummary, EnvironmentalTrends } from "@/types";
 import { ProvenanceCard } from "@/components/ProvenanceCard";
 import {
   Thermometer,
@@ -34,17 +34,27 @@ import {
 export default function EnvironmentalInsightsPage() {
   const { selectedFarm } = useFarm();
   const [env, setEnv] = useState<EnvironmentalSummary | null>(null);
+  const [trends, setTrends] = useState<EnvironmentalTrends | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedFarm) return;
     setLoading(true);
-    fetchEnvironmentalSummary(selectedFarm.id)
-      .then(setEnv)
+    setError(null);
+    Promise.all([
+      fetchEnvironmentalSummary(selectedFarm.id),
+      fetchEnvironmentalTrends(selectedFarm.id),
+    ])
+      .then(([summary, trendData]) => {
+        setEnv(summary);
+        setTrends(trendData);
+      })
+      .catch((reason) => setError(reason instanceof Error ? reason.message : "Environmental data failed to load."))
       .finally(() => setLoading(false));
   }, [selectedFarm]);
 
-  if (loading || !env || !selectedFarm) {
+  if (loading) {
     return (
       <div className="py-20 flex flex-col items-center justify-center space-y-4">
         <div className="w-10 h-10 border-4 border-[#39734C] border-t-transparent rounded-full animate-spin"></div>
@@ -54,16 +64,11 @@ export default function EnvironmentalInsightsPage() {
       </div>
     );
   }
+  if (error || !env || !selectedFarm) {
+    return <div className="p-6 rounded-2xl bg-[#FDF2F0] border border-[#E7B8B4] text-sm text-[#8B2F2A]">{error || "No environmental data is available."}</div>;
+  }
 
-  // 4-Season Historical Anomaly Data (2023 - 2026)
-  const seasonalComparison = [
-    { season: "Kharif 2023", rainfall: 410, normalRain: 440, temp: 28.2, normalTemp: 27.5, soilMoisture: 28 },
-    { season: "Rabi 2023-24", rainfall: 115, normalRain: 120, temp: 16.5, normalTemp: 16.0, soilMoisture: 24 },
-    { season: "Kharif 2024", rainfall: 340, normalRain: 440, temp: 29.8, normalTemp: 27.5, soilMoisture: 21 },
-    { season: "Rabi 2024-25", rainfall: 95, normalRain: 120, temp: 17.8, normalTemp: 16.0, soilMoisture: 20 },
-    { season: "Kharif 2025", rainfall: 310, normalRain: 440, temp: 30.5, normalTemp: 27.5, soilMoisture: 19 },
-    { season: "Rabi 2025-26", rainfall: 88, normalRain: 120, temp: 18.2, normalTemp: 16.0, soilMoisture: 18 },
-  ];
+  const seasonalComparison = trends?.historical_seasonal_comparison || [];
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -79,9 +84,13 @@ export default function EnvironmentalInsightsPage() {
           Environmental Insights & Satellite Observations
         </h2>
         <p className="text-xs text-[#617367] mt-1 max-w-3xl">
-          Multi-sensor analysis integrating NASA POWER daily agrometeorology, NASA SMAP soil moisture radiometry,
-          Copernicus Sentinel-2 surface reflectance, and ISRIC SoilGrids pedometrics.
+          Multi-sensor analysis integrating NASA POWER agrometeorology, SMAP/GPM observations,
+          Landsat–MODIS–VIIRS vegetation indices, and SSURGO with global SoilGrids fallback.
         </p>
+      </div>
+
+      <div className={`p-4 rounded-xl border text-xs ${env.data_status === "live" ? "bg-[#EAF4ED] border-[#BCE0C8] text-[#204936]" : "bg-[#FFF7E8] border-[#E8C98B] text-[#7A4A00]"}`}>
+        <strong>Data status: {env.data_status}.</strong> {env.data_messages.length ? env.data_messages.join(" ") : "All displayed metrics report live provenance."}
       </div>
 
       {/* Grid of All Core NASA & Earth Metrics with Provenance Metadata */}
@@ -102,15 +111,17 @@ export default function EnvironmentalInsightsPage() {
           unit="mm / yr"
           subtitle={`Seasonal ${Math.round(env.rainfall.seasonal_precipitation_mm)}mm • ${env.rainfall.heavy_rain_events_gt_25mm} heavy rain bursts (>25mm)`}
           provenance={env.rainfall.provenance}
-          trendText={`Deficit: ${env.rainfall.rainfall_deficit_pct}%`}
-          isPositiveTrend={env.rainfall.rainfall_deficit_pct <= 10}
+          trendText={env.rainfall.rainfall_deficit_pct == null ? "Climatological anomaly unavailable" : `Anomaly vs 1991-2020: ${env.rainfall.rainfall_deficit_pct > 0 ? "+" : ""}${env.rainfall.rainfall_deficit_pct}%`}
+          isPositiveTrend={env.rainfall.rainfall_deficit_pct == null || env.rainfall.rainfall_deficit_pct >= -10}
         />
 
         <ProvenanceCard
           title="Soil Moisture (SMAP 9km)"
           value={env.soil_moisture.surface_soil_moisture_m3_m3.toFixed(2)}
           unit="m³/m³"
-          subtitle={`Root-zone: ${env.soil_moisture.root_zone_soil_moisture_m3_m3.toFixed(2)} m³/m³ • Radiometric L-band 0-5cm`}
+          subtitle={env.soil_moisture.root_zone_soil_moisture_m3_m3 == null
+            ? "Surface 0-5cm observation • Root-zone not measured by SPL3SMP_E"
+            : `Root-zone: ${env.soil_moisture.root_zone_soil_moisture_m3_m3.toFixed(2)} m³/m³ • Radiometric L-band 0-5cm`}
           provenance={env.soil_moisture.provenance}
           trendText={env.soil_moisture.anomaly_status}
           isPositiveTrend={!env.soil_moisture.anomaly_status.includes("Deficit")}
@@ -122,7 +133,7 @@ export default function EnvironmentalInsightsPage() {
           unit="NDVI"
           subtitle={`Historical Mean: ${env.vegetation.mean_historical_ndvi} • Peak Vigour: ${env.vegetation.peak_season_ndvi}`}
           provenance={env.vegetation.provenance}
-          trendText={`Anomaly: ${env.vegetation.ndvi_anomaly > 0 ? "+" : ""}${env.vegetation.ndvi_anomaly}`}
+          trendText={`18-month anomaly: ${env.vegetation.ndvi_anomaly > 0 ? "+" : ""}${env.vegetation.ndvi_anomaly}`}
           isPositiveTrend={env.vegetation.ndvi_anomaly >= 0}
         />
 
@@ -156,7 +167,7 @@ export default function EnvironmentalInsightsPage() {
               Multi-Year Seasonal Rainfall vs 30-Year Climatological Normal
             </h3>
             <p className="text-xs text-[#617367]">
-              Observed seasonal precipitation (mm) against historical baseline showing drying anomalies
+              {trends?.message || "Historical comparison is unavailable."}
             </p>
           </div>
           <div className="flex items-center gap-4 text-xs">
@@ -171,7 +182,7 @@ export default function EnvironmentalInsightsPage() {
           </div>
         </div>
 
-        <div className="h-72 w-full">
+        {seasonalComparison.length > 0 ? <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={seasonalComparison}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F0EDE4" />
@@ -185,17 +196,20 @@ export default function EnvironmentalInsightsPage() {
                   fontSize: "12px",
                 }}
               />
-              <Bar dataKey="rainfall" fill="#39734C" radius={[6, 6, 0, 0]} name="Observed Rainfall (mm)" />
-              <Bar dataKey="normalRain" fill="#DDD6C3" radius={[6, 6, 0, 0]} name="Normal Baseline (mm)" />
+              <Bar dataKey="rainfall_mm" fill="#39734C" radius={[6, 6, 0, 0]} name="POWER seasonal rainfall (mm)" />
+              <Bar dataKey="normal_rainfall_mm" fill="#DDD6C3" radius={[6, 6, 0, 0]} name="1991-2020 normal (mm)" />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </div> : <div className="p-6 rounded-xl bg-[#F8F8F3] border border-[#DDD6C3] text-sm text-[#617367]">No historical chart is shown because no live farm-specific trend series is available.</div>}
 
         {/* Analytical takeaway alert */}
         <div className="p-4 rounded-xl bg-[#F8F8F3] border border-[#DDD6C3] text-xs text-[#26352C] leading-relaxed flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-[#39734C] shrink-0 mt-0.5" />
           <div>
-            <span className="font-bold">Agroclimatic Trend Analysis:</span> Seasonal rainfall over Kharif 2024 and 2025 exhibits a 22-29% precipitation deficit below the long-term normal. Maximum consecutive dry days have expanded from 16 to 26 days. This empirical shift underscores the vulnerability of continuing high-water cereal monocultures without rotation diversification.
+            <span className="font-bold">Trend interpretation:</span>{" "}
+            {seasonalComparison.length
+              ? `The latest complete season has a ${seasonalComparison.at(-1)?.rainfall_anomaly_pct ?? "not calculated"}% rainfall anomaly against the coordinate-specific 1991-2020 POWER baseline.`
+              : "No empirical trend interpretation is produced without live historical observations."}
           </div>
         </div>
       </div>
@@ -205,7 +219,7 @@ export default function EnvironmentalInsightsPage() {
         <div className="bg-[#FFFFFF] rounded-2xl p-6 border border-[#E8E2D2] shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-[#183D2C] uppercase tracking-wider flex items-center gap-2">
             <Sprout className="w-4 h-4 text-[#39734C]" />
-            ISRIC Soil Texture Fractions (0-30cm Horizon)
+            Soil Texture Fractions (0-30cm Horizon)
           </h3>
           <div className="space-y-3">
             <div>
@@ -248,7 +262,7 @@ export default function EnvironmentalInsightsPage() {
             </div>
           </div>
           <p className="text-[11px] text-[#617367] leading-relaxed pt-2 border-t border-[#F0EDE4]">
-            Pedological classification: <strong>Loam / Silt Loam</strong>. High water retention potential (145 mm/m) but vulnerable to surface crusting under heavy raindrop impact during early spring fallow.
+            Source: <strong>{env.soil_properties.provenance.source_name}</strong>. Texture values are displayed as reported by the active soil connector; no local soil class is inferred here.
           </p>
         </div>
 

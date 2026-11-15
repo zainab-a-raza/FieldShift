@@ -80,7 +80,7 @@ class TemperatureMetrics(BaseModel):
     min_temp_c: float
     hot_days_gt_35c: int
     growing_degree_days: float
-    historical_anomaly_c: float
+    historical_anomaly_c: Optional[float] = None
     provenance: ProvenanceRecord
 
 class RainfallMetrics(BaseModel):
@@ -89,13 +89,13 @@ class RainfallMetrics(BaseModel):
     variability_index_pct: float
     heavy_rain_events_gt_25mm: int
     max_consecutive_dry_days: int
-    rainfall_deficit_pct: float
+    rainfall_deficit_pct: Optional[float] = None
     provenance: ProvenanceRecord
 
 class SoilMoistureMetrics(BaseModel):
     surface_soil_moisture_m3_m3: float  # SMAP surface volumetric moisture 0-5cm
-    root_zone_soil_moisture_m3_m3: float # 0-100cm
-    soil_moisture_percentile: float     # historical percentile 0-100%
+    root_zone_soil_moisture_m3_m3: Optional[float] = None  # Not measured by SPL3SMP_E
+    soil_moisture_percentile: Optional[float] = None  # Requires a local historical distribution
     anomaly_status: str                 # "Deficit (-1.8 sigma)", "Normal", "Surplus"
     provenance: ProvenanceRecord
 
@@ -139,6 +139,8 @@ class EnvironmentalSummary(BaseModel):
     terrain: TerrainMetrics
     environmental_alerts: List[Dict[str, Any]]
     is_demo_data: bool
+    data_status: str = Field(..., description="live, mixed, or demo")
+    data_messages: List[str] = Field(default_factory=list)
 
 # --- Recommendation Schemas ---
 

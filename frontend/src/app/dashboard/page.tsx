@@ -174,8 +174,10 @@ export default function DashboardPage() {
           unit="m³/m³"
           subtitle={`Radiometric Topsoil (0-5cm) • Status: ${env.soil_moisture.anomaly_status}`}
           provenance={env.soil_moisture.provenance}
-          trendText={`${env.soil_moisture.soil_moisture_percentile}th Percentile`}
-          isPositiveTrend={env.soil_moisture.soil_moisture_percentile > 40}
+          trendText={env.soil_moisture.soil_moisture_percentile == null
+            ? "Live surface observation"
+            : `${env.soil_moisture.soil_moisture_percentile}th Percentile`}
+          isPositiveTrend={(env.soil_moisture.soil_moisture_percentile ?? 50) > 40}
         />
 
         <ProvenanceCard
@@ -203,7 +205,7 @@ export default function DashboardPage() {
           <FarmMap
             farm={selectedFarm}
             ndvi={env.vegetation.current_ndvi}
-            soilMoisturePercentile={env.soil_moisture.soil_moisture_percentile}
+            soilMoisturePercentile={env.soil_moisture.soil_moisture_percentile ?? 50}
           />
 
           {/* Quick Soil Properties Strip */}
@@ -326,7 +328,7 @@ export default function DashboardPage() {
               Annual Agroclimatic Profile & Vegetation Cycle
             </h3>
             <p className="text-xs text-[#617367]">
-              NASA POWER daily 2m temperature (°C) and precipitation (mm) integrated with Sentinel-2 NDVI time series
+              NASA POWER weather integrated with Landsat, MODIS, and VIIRS NDVI observations
             </p>
           </div>
           <div className="flex items-center gap-4 text-xs font-medium">

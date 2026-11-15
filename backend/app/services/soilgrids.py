@@ -28,7 +28,10 @@ class SoilGridsService:
         Queries ISRIC SoilGrids 2.0 REST API for given coordinates.
         """
         if settings.DEMO_MODE:
-            return self._generate_fallback(latitude, longitude)
+            return self._generate_fallback(
+                latitude, longitude,
+                "Application DEMO_MODE is enabled; no SoilGrids request was made.",
+            )
 
         params = {
             "lat": f"{latitude:.4f}",
@@ -44,10 +47,16 @@ class SoilGridsService:
                 if resp.status_code == 200:
                     data = resp.json()
                     return self._parse_soilgrids_data(data, latitude, longitude, is_live=True)
-        except Exception:
-            pass
+        except Exception as exc:
+            return self._generate_fallback(
+                latitude, longitude,
+                f"SoilGrids request failed ({type(exc).__name__}); demo values are shown instead.",
+            )
 
-        return self._generate_fallback(latitude, longitude)
+        return self._generate_fallback(
+            latitude, longitude,
+            "SoilGrids returned no usable profile; demo values are shown instead.",
+        )
 
     def _parse_soilgrids_data(self, data: Dict[str, Any], lat: float, lon: float, is_live: bool) -> SoilPropertiesMetrics:
         layers = data.get("properties", {}).get("layers", [])
@@ -104,7 +113,10 @@ class SoilGridsService:
             provenance=prov
         )
 
-    def _generate_fallback(self, lat: float, lon: float) -> SoilPropertiesMetrics:
+    def _generate_fallback(
+        self, lat: float = 0.0, lon: float = 0.0,
+        reason: str = "Demo benchmark requested.",
+    ) -> SoilPropertiesMetrics:
         prov = create_provenance(
             metric_id="soil_properties_0_30cm",
             metric_name="Digital Soil Properties (Demo Benchmark)",
@@ -116,7 +128,7 @@ class SoilGridsService:
             quality_flag=DataQualityFlag.SIMULATED_DEMO,
             is_demo=True,
             citation="ISRIC SoilGrids 2.0 Architecture",
-            notes="Demo mode fallback profile preserving realistic physical pedotransfer relationships."
+            notes=reason
         )
 
         return SoilPropertiesMetrics(

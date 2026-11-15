@@ -17,8 +17,17 @@ class Settings(BaseSettings):
     # External APIs
     NASA_EARTHDATA_USERNAME: str = ""
     NASA_EARTHDATA_PASSWORD: str = ""
+    NASA_EARTHDATA_TOKEN: str = ""
+    NASA_CMR_API_URL: str = "https://cmr.earthdata.nasa.gov/search/granules.json"
     NASA_POWER_API_URL: str = "https://power.larc.nasa.gov/api/temporal/daily/point"
     SOILGRIDS_API_URL: str = "https://rest.isric.org/soilgrids/v2.0/properties/query"
+    USDA_SOIL_DATA_API_URL: str = "https://sdmdataaccess.sc.egov.usda.gov/Tabular/post.rest"
+    USDA_SOIL_TIMEOUT_SECONDS: float = 20.0
+
+    # Live Earthdata connector controls
+    EARTHDATA_TIMEOUT_SECONDS: float = 30.0
+    EARTHDATA_MAX_DOWNLOAD_MB: int = 150
+    GPM_MONTHS_TO_ANALYZE: int = 12
     
     # Earth Engine
     GEE_SERVICE_ACCOUNT: str = ""

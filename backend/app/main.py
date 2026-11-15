@@ -28,7 +28,7 @@ app = FastAPI(
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,12 +45,29 @@ app.include_router(reports.router)
 
 @app.get("/health")
 def health_check():
+    earthdata_enabled = not settings.DEMO_MODE and bool(settings.NASA_EARTHDATA_TOKEN)
+    gee_enabled = (
+        not settings.DEMO_MODE
+        and bool(settings.GEE_SERVICE_ACCOUNT)
+        and bool(settings.GEE_PRIVATE_KEY_FILE)
+    )
     return {
         "status": "healthy",
         "service": "FieldShift Agricultural Intelligence Backend",
+        "data_mode": "demo" if settings.DEMO_MODE else "live_with_fallbacks",
         "demo_mode": settings.DEMO_MODE,
-        "earthdata_configured": bool(settings.NASA_EARTHDATA_USERNAME),
-        "gee_configured": bool(settings.GEE_SERVICE_ACCOUNT)
+        "earthdata_configured": bool(settings.NASA_EARTHDATA_TOKEN),
+        "earthdata_live_enabled": earthdata_enabled,
+        "gee_configured": bool(settings.GEE_SERVICE_ACCOUNT and settings.GEE_PRIVATE_KEY_FILE),
+        "gee_live_enabled": gee_enabled,
+        "connectors": {
+            "nasa_power": "demo_disabled" if settings.DEMO_MODE else "enabled_no_key_required",
+            "usda_soil_data": "demo_disabled" if settings.DEMO_MODE else "enabled_no_key_required",
+            "soilgrids": "demo_disabled" if settings.DEMO_MODE else "enabled_no_key_required",
+            "nasa_earthdata": "enabled" if earthdata_enabled else "not_enabled",
+            "google_earth_engine": "enabled" if gee_enabled else "not_enabled",
+        },
+        "configuration_note": "Credentials are read only from backend environment variables; the browser never stores them.",
     }
 
 @app.get("/")

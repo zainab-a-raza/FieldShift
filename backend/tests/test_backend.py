@@ -4,6 +4,10 @@ Comprehensive Unit Tests for FieldShift Backend Engine and Services.
 import sys
 import os
 import unittest
+from io import BytesIO
+
+import h5py
+import numpy as np
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -13,6 +17,11 @@ from app.engine.mcda import MCDAEngine, DEFAULT_WEIGHTS
 from app.engine.rules import AgronomicRulesEngine
 from app.engine.generator import StrategyGenerator
 from app.engine.genetic_algo import CropSequenceGeneticOptimizer
+from app.services.earthdata import EarthdataClient, EarthdataGranule
+from app.services.nasa_smap import NASASMAPService
+from app.services.nasa_gpm import NASAGPMService
+from app.services.srtm import SRTMService
+from app.services.usda_soils import USDASoilDataService
 
 def get_mock_environment():
     prov = create_provenance("test", "test", "NASA Test", "v1", DataOriginType.DIRECT_SATELLITE, "10m", "units")
@@ -142,6 +151,76 @@ class TestFieldShiftEngine(unittest.TestCase):
         res = optimizer.run_optimization(req)
         self.assertEqual(len(res.optimized_strategy.crop_sequence), 4)
         self.assertGreaterEqual(res.optimized_strategy.overall_score, 40.0)
+
+    def test_earthdata_prefers_native_download_link(self):
+        links = [
+            {"href": "https://example.test/opendap/file.h5", "rel": EarthdataClient.DATA_REL},
+            {"href": "https://example.test/archive/file.h5", "rel": EarthdataClient.DATA_REL},
+        ]
+        self.assertEqual(
+            EarthdataClient._select_data_url(links),
+            "https://example.test/archive/file.h5",
+        )
+
+    def test_smap_hdf5_nearest_cell_reader(self):
+        buffer = BytesIO()
+        with h5py.File(buffer, "w") as h5:
+            group = h5.create_group("Soil_Moisture_Retrieval_Data_AM")
+            group.create_dataset("latitude", data=np.array([[10.0, 10.0], [11.0, 11.0]]))
+            group.create_dataset("longitude", data=np.array([[20.0, 21.0], [20.0, 21.0]]))
+            group.create_dataset("soil_moisture", data=np.array([[0.1, 0.2], [0.3, 0.4]]))
+        value = NASASMAPService._read_nearest_surface_moisture(buffer.getvalue(), 10.9, 20.9)
+        self.assertAlmostEqual(value, 0.4, places=3)
+
+    def test_gpm_monthly_point_reader_converts_rate_to_total(self):
+        buffer = BytesIO()
+        with h5py.File(buffer, "w") as h5:
+            h5.create_dataset("lat", data=np.array([10.0, 20.0, 30.0]))
+            h5.create_dataset("lon", data=np.array([100.0, 110.0, 120.0, 130.0]))
+            precip = h5.create_dataset("precipitation", data=np.ones((1, 4, 3)))
+            precip.attrs["units"] = "mm/hr"
+        granule = EarthdataGranule(
+            granule_id="test",
+            title="test",
+            time_start="2024-02-01T00:00:00Z",
+            time_end="2024-02-29T23:59:59Z",
+            data_url="https://example.test/file.nc4",
+        )
+        total = NASAGPMService._read_monthly_total(buffer.getvalue(), 20.1, 109.9, granule)
+        self.assertEqual(total, 696.0)
+
+    def test_srtm_fallback_is_explicitly_demo(self):
+        terrain = SRTMService()._fallback()
+        self.assertTrue(terrain.provenance.is_demo)
+        self.assertEqual(terrain.provenance.quality_flag.value, "simulated_demo_data")
+
+    def test_ssurgo_horizons_are_depth_weighted(self):
+        rows = [
+            {
+                "mukey": "123", "musym": "LoA", "cokey": "456",
+                "compname": "Test loam", "comppct_r": "80",
+                "hzdept_r": "0", "hzdepb_r": "10", "sandtotal_r": "40",
+                "silttotal_r": "40", "claytotal_r": "20", "dbthirdbar_r": "1.2",
+                "om_r": "3.0", "ph1to1h2o_r": "6.5", "awc_r": "0.18",
+                "wthirdbar_r": "30", "wfifteenbar_r": "12",
+            },
+            {
+                "mukey": "123", "musym": "LoA", "cokey": "456",
+                "compname": "Test loam", "comppct_r": "80",
+                "hzdept_r": "10", "hzdepb_r": "40", "sandtotal_r": "30",
+                "silttotal_r": "45", "claytotal_r": "25", "dbthirdbar_r": "1.4",
+                "om_r": "1.0", "ph1to1h2o_r": "7.0", "awc_r": "0.12",
+                "wthirdbar_r": "28", "wfifteenbar_r": "16",
+            },
+        ]
+        soil = USDASoilDataService._profile_from_rows(rows)
+        self.assertIsNotNone(soil)
+        self.assertAlmostEqual(soil.sand_fraction_pct, 33.3, places=1)
+        self.assertAlmostEqual(soil.clay_fraction_pct, 23.3, places=1)
+        self.assertAlmostEqual(soil.available_water_capacity_mm_m, 140.0, places=1)
+        self.assertAlmostEqual(soil.bulk_density_cg_cm3, 133.3, places=1)
+        self.assertFalse(soil.provenance.is_demo)
+        self.assertIn("SSURGO/STATSGO2", soil.provenance.source_name)
 
 if __name__ == "__main__":
     unittest.main()

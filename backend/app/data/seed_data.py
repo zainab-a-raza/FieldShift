@@ -36,7 +36,7 @@ def seed_database():
             "cadence": "Daily (with 3-4 day latency)",
             "status": "Operational / Live",
             "description": "Daily surface solar radiation, air temperature (mean, min, max), precipitation, and relative humidity for global agricultural decision making.",
-            "documentation_url": "https://power.larc.nasa.gov/docs/"
+            "documentation_url": "https://power.larc.nasa.gov/"
         },
         {
             "id": "isric-soilgrids",
@@ -50,26 +50,70 @@ def seed_database():
             "documentation_url": "https://docs.isric.org/globaldata/soilgrids/"
         },
         {
+            "id": "usda-nrcs-ssurgo",
+            "name": "USDA NRCS SSURGO / STATSGO2",
+            "agency": "USDA Natural Resources Conservation Service",
+            "product_name": "Soil Survey Geographic Database via Soil Data Access",
+            "resolution": "Survey map-unit polygons and component horizons",
+            "cadence": "Published soil-survey baseline",
+            "status": "Operational / Live REST API (U.S. coverage)",
+            "description": "Point-intersected soil map units with depth-weighted 0-30 cm texture, pH, organic matter, bulk density, and available water capacity; SoilGrids is the global fallback.",
+            "documentation_url": "https://www.nrcs.usda.gov/resources/data-and-reports/soils"
+        },
+        {
             "id": "nasa-smap",
             "name": "NASA SMAP",
             "agency": "NASA Jet Propulsion Laboratory / GSFC",
-            "product_name": "SMAP L3 Radiometer Global Daily 9 km (SPL3SMP_E)",
+            "product_name": "SMAP Enhanced L3 Radiometer Global Daily 9 km (SPL3SMP_E V006)",
             "resolution": "9 km x 9 km",
             "cadence": "Daily (2-3 day revisit)",
-            "status": "Operational / Live",
+            "status": "Live via Earthdata CMR when token is configured",
             "description": "Surface volumetric soil moisture (0-5 cm depth) measured with L-band microwave radiometer, indicating regional soil saturation and dry spells.",
-            "documentation_url": "https://smap.jpl.nasa.gov/"
+            "documentation_url": "https://www.earthdata.nasa.gov/data/platforms/space-based-platforms/smap"
         },
         {
             "id": "nasa-gpm",
             "name": "NASA GPM IMERG",
             "agency": "NASA Goddard Space Flight Center",
-            "product_name": "GPM IMERG Final Precipitation L3 Daily 0.1° (GPM_3IMERGDF)",
+            "product_name": "GPM IMERG Final Precipitation L3 V07 (GPM_3IMERGM / GPM_3IMERGDF)",
             "resolution": "0.1° x 0.1° (~10 km)",
             "cadence": "Daily (calibrated monthly)",
-            "status": "Operational / Live",
+            "status": "Live via Earthdata CMR when token is configured",
             "description": "Global precipitation estimates combining radar, microwave, infrared satellite sensors with surface rain-gauge validation.",
-            "documentation_url": "https://gpm.nasa.gov/data/imerg"
+            "documentation_url": "https://gpm.nasa.gov/data"
+        },
+        {
+            "id": "usgs-landsat",
+            "name": "USGS Landsat 8/9",
+            "agency": "U.S. Geological Survey / NASA",
+            "product_name": "Landsat Collection 2 Level-2 Surface Reflectance",
+            "resolution": "30m multispectral",
+            "cadence": "8-day combined Landsat 8/9 revisit",
+            "status": "Operational via Earth Engine when configured",
+            "description": "Cloud- and shadow-masked red/NIR surface reflectance used to calculate field-scale NDVI, historical mean, peak, and anomaly.",
+            "documentation_url": "https://earthexplorer.usgs.gov/"
+        },
+        {
+            "id": "nasa-modis",
+            "name": "NASA MODIS",
+            "agency": "NASA LP DAAC",
+            "product_name": "MOD13Q1 V061 Terra Vegetation Indices",
+            "resolution": "250m",
+            "cadence": "16-day composites",
+            "status": "Operational fallback via Earth Engine when configured",
+            "description": "Quality-screened Terra NDVI composites provide vegetation continuity when usable Landsat observations are unavailable.",
+            "documentation_url": "https://lpdaac.usgs.gov/products/"
+        },
+        {
+            "id": "nasa-viirs",
+            "name": "NASA / NOAA VIIRS",
+            "agency": "NASA LP DAAC / NOAA",
+            "product_name": "VNP13A1 V002 Suomi NPP Vegetation Indices",
+            "resolution": "500m",
+            "cadence": "16-day composites",
+            "status": "Operational fallback via Earth Engine when configured",
+            "description": "Quality-screened VIIRS NDVI composites provide a second vegetation continuity layer after Landsat and MODIS.",
+            "documentation_url": "https://search.earthdata.nasa.gov/search?q=VIIRS"
         },
         {
             "id": "copernicus-sentinel2",
@@ -89,11 +133,15 @@ def seed_database():
             "product_name": "SRTM Global 1 Arc-Second V003 (SRTMGL1)",
             "resolution": "1 arc-second (~30m)",
             "cadence": "Static Global Benchmark",
-            "status": "Operational / USGS EarthExplorer",
+            "status": "Live via Earthdata CMR when token is configured",
             "description": "Digital elevation and derived topographic slope gradient for estimating rainfall runoff and terrain-based erosion risk.",
-            "documentation_url": "https://www.usgs.gov/centers/eros/science/usgs-eros-archive-digital-elevation-shuttle-radar-topography-mission-srtm-1-arc"
+            "documentation_url": "https://www.earthdata.nasa.gov/data/instruments/srtm"
         }
     ]
+
+    # Remove the earlier combined registry row now that MODIS and VIIRS have
+    # separate official documentation links and provenance entries.
+    cursor.execute("DELETE FROM data_sources WHERE id = ?", ("nasa-modis-viirs",))
 
     for ds in data_sources:
         cursor.execute("""

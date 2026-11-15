@@ -94,9 +94,11 @@ The application uses an authentic agricultural SaaS palette:
 | Provider / Instrument | Product Version | Spatial Footprint | Temporal Resolution | Agronomic Application |
 |---|---|---|---|---|
 | **NASA POWER** | Release 2.0.0 (MERRA-2) | 0.5° x 0.5° (~50km) | Daily | Surface temperature (avg, min, max), precipitation, solar irradiance, hot days (≥35°C), GDD. |
-| **NASA SMAP** | SPL3SMP_E Version 5 | 9km x 9km native | Daily (2-3d revisit) | Topsoil volumetric soil moisture (0-5cm), root-zone moisture anomalies. |
-| **NASA GPM IMERG** | GPM_3IMERGDF V07B | 0.1° x 0.1° (~10km) | Daily calibrated | Multi-satellite precipitation, heavy convective bursts (>25mm), consecutive dry days. |
-| **Copernicus Sentinel-2** | Harmonized Level-2A (S2_SR) | 10m Multispectral | 5-day revisit | Atmospherically corrected NDVI = (B8-B4)/(B8+B4) with SCL cloud & shadow masking. |
+| **NASA SMAP** | SPL3SMP_E Version 6 | 9km x 9km native | Daily (2-3d revisit) | Direct topsoil volumetric soil moisture (0-5cm). |
+| **NASA GPM IMERG** | GPM_3IMERGM V07 | 0.1° x 0.1° (~10km) | Monthly calibrated | Multi-satellite precipitation totals, combined with POWER daily spell diagnostics. |
+| **USGS Landsat 8/9** | Collection 2 Level-2 | 30m Multispectral | 8-day combined revisit | Cloud/shadow-masked red/NIR surface reflectance NDVI for fields. |
+| **NASA MODIS / VIIRS** | MOD13Q1 V061 / VNP13A1 V002 | 250m / 500m | 16-day composite | Quality-screened vegetation-index continuity when Landsat has no usable observation. |
+| **USDA NRCS SSURGO** | Current Soil Data Mart survey | Survey map units/horizons | Published baseline | U.S. 0-30cm component texture, pH, organic carbon estimate, bulk density, and available water capacity. |
 | **ISRIC SoilGrids** | SoilGrids 2.0 Global | 250m x 250m | Baseline aggregated | Topsoil (0-30cm) organic carbon, pH in H2O, sand/silt/clay fractions, bulk density. |
 | **NASA SRTM** | SRTMGL1 Version 3 | 1 arc-second (~30m) | Static benchmark | Digital elevation and slope gradient indicating topographic runoff & erosion susceptibility. |
 
@@ -197,8 +199,20 @@ FieldShift/
 ```powershell
 cd backend
 python -m pip install -r requirements.txt
+Copy-Item .env.example .env
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+The default `.env` runs in calibrated demo mode. For live NASA SMAP, GPM IMERG,
+and SRTM granules, create an Earthdata bearer token, set
+`NASA_EARTHDATA_TOKEN` in `backend/.env`, and set `DEMO_MODE=false`. Live data
+is discovered with NASA CMR and downloaded from the responsible DAAC; failed or
+missing observations fall back to clearly watermarked demo values.
+
+NASA POWER and USDA Soil Data Access require no API key in live mode. Live
+Landsat/MODIS/VIIRS reductions require a Google Earth Engine service account;
+set `GEE_SERVICE_ACCOUNT` and `GEE_PRIVATE_KEY_FILE`. SSURGO is queried first
+for U.S. coordinates, with SoilGrids retained as the global fallback.
 *The database automatically initializes and seeds 3 realistic global holdings (Salina Prairie Farm, Punjab Research Plot, and Andalusia Field) along with the 10-crop catalog.*
 
 Interactive API documentation will be available at:  

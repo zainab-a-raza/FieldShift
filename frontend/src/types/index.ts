@@ -42,7 +42,7 @@ export interface TemperatureMetrics {
   min_temp_c: number;
   hot_days_gt_35c: number;
   growing_degree_days: number;
-  historical_anomaly_c: number;
+  historical_anomaly_c: number | null;
   provenance: ProvenanceRecord;
 }
 
@@ -52,14 +52,14 @@ export interface RainfallMetrics {
   variability_index_pct: number;
   heavy_rain_events_gt_25mm: number;
   max_consecutive_dry_days: number;
-  rainfall_deficit_pct: number;
+  rainfall_deficit_pct: number | null;
   provenance: ProvenanceRecord;
 }
 
 export interface SoilMoistureMetrics {
   surface_soil_moisture_m3_m3: number;
-  root_zone_soil_moisture_m3_m3: number;
-  soil_moisture_percentile: number;
+  root_zone_soil_moisture_m3_m3: number | null;
+  soil_moisture_percentile: number | null;
   anomaly_status: string;
   provenance: ProvenanceRecord;
 }
@@ -113,6 +113,48 @@ export interface EnvironmentalSummary {
   terrain: TerrainMetrics;
   environmental_alerts: EnvironmentalAlert[];
   is_demo_data: boolean;
+  data_status: "live" | "mixed" | "demo";
+  data_messages: string[];
+}
+
+export interface SeasonalTrend {
+  season: string;
+  rainfall_mm: number;
+  normal_rainfall_mm: number;
+  rainfall_anomaly_pct: number | null;
+  avg_temperature_c: number;
+  normal_temperature_c: number;
+}
+
+export interface EnvironmentalTrends {
+  farm_id: string;
+  daily_weather_series: {
+    dates?: string[];
+    t2m?: number[];
+    precipitation?: number[];
+  };
+  historical_seasonal_comparison: SeasonalTrend[];
+  status: "live" | "demo_unavailable" | "upstream_error";
+  is_demo: boolean;
+  message: string;
+  metadata: {
+    source: string;
+    baseline_period?: string | null;
+    granularity: string;
+  };
+}
+
+export interface SystemHealth {
+  status: string;
+  service: string;
+  data_mode: "demo" | "live_with_fallbacks";
+  demo_mode: boolean;
+  earthdata_configured: boolean;
+  earthdata_live_enabled: boolean;
+  gee_configured: boolean;
+  gee_live_enabled: boolean;
+  connectors: Record<string, string>;
+  configuration_note: string;
 }
 
 export interface SeasonCropSlot {
@@ -231,4 +273,40 @@ export interface DataSource {
   status: string;
   description: string;
   documentation_url: string;
+}
+
+export interface ReportCitation {
+  metric: string;
+  source: string;
+  product: string;
+  quality_flag: string;
+  is_demo: boolean;
+  citation?: string | null;
+  details: string;
+}
+
+export interface DecisionReport {
+  report_id: string;
+  generated_at: string;
+  report_status: "live" | "mixed" | "demo";
+  data_messages: string[];
+  decision_support_disclaimer: string;
+  farm_profile: Record<string, string | number>;
+  environmental_diagnostics: Record<string, unknown>;
+  rotation_recommendations: {
+    recommended_strategy_title: string;
+    recommended_score: number;
+    recommended_summary: string;
+    recommended_reasons: string[];
+    missing_data_warnings: string[];
+    strategies_overview: Array<{
+      title: string;
+      overall_score: number;
+      crop_sequence: string[];
+      water_resilience: number;
+      soil_improvement: number;
+      market_suitability: number;
+    }>;
+  };
+  scientific_provenance_citations: ReportCitation[];
 }

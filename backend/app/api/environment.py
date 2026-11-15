@@ -1,15 +1,17 @@
 """
 Environmental Insights & Earth Observation API Endpoints.
-Connects NASA POWER, SMAP, GPM IMERG, Sentinel-2 (GEE), SoilGrids, and SRTM.
+Connects NASA POWER, SMAP, GPM IMERG, Landsat/MODIS/VIIRS, SSURGO/SoilGrids, and SRTM.
 """
 from fastapi import APIRouter, HTTPException
 from typing import Dict, Any, List
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from app.models.database import get_connection
 from app.models.schemas import EnvironmentalSummary, SoilPropertiesMetrics, VegetationMetrics
+from app.config import settings
 from app.services.nasa_power import NASAPowerService
 from app.services.soilgrids import SoilGridsService
+from app.services.usda_soils import USDASoilDataService
 from app.services.nasa_smap import NASASMAPService
 from app.services.nasa_gpm import NASAGPMService
 from app.services.earth_engine import EarthEngineService
@@ -19,6 +21,7 @@ router = APIRouter(prefix="/api/farms/{farm_id}", tags=["Environmental Observati
 
 nasa_power_svc = NASAPowerService()
 soilgrids_svc = SoilGridsService()
+usda_soils_svc = USDASoilDataService()
 smap_svc = NASASMAPService()
 gpm_svc = NASAGPMService()
 ee_svc = EarthEngineService()
@@ -38,12 +41,22 @@ async def get_or_calculate_env_summary(farm_id: str) -> EnvironmentalSummary:
     lon = farm["longitude"]
     bounds = json.loads(farm["boundaries_geojson"]) if farm["boundaries_geojson"] else None
 
-    # Fetch data concurrently or sequentially from providers
+    # NASA POWER supplies daily weather/spell diagnostics. Other providers are
+    # queried independently so a temporary upstream outage does not block them.
     power_data = await nasa_power_svc.fetch_daily_agrometeorology(lat, lon)
-    soil_data = await soilgrids_svc.fetch_soil_profile(lat, lon)
+    # SSURGO supplies detailed U.S. survey horizons. SoilGrids preserves global
+    # coverage when the coordinate is outside SSURGO or its service is offline.
+    soil_data = await usda_soils_svc.fetch_soil_profile(lat, lon)
+    used_soilgrids_fallback = soil_data is None
+    if soil_data is None:
+        soil_data = await soilgrids_svc.fetch_soil_profile(lat, lon)
     smap_data = await smap_svc.get_soil_moisture(lat, lon)
+    gpm_data = await gpm_svc.get_precipitation_climatology(
+        lat, lon, fallback_metrics=power_data["rainfall"]
+    )
     veg_data = await ee_svc.get_vegetation_metrics(lat, lon, bounds)
     terrain_data = await srtm_svc.get_terrain_metrics(lat, lon)
+    rainfall_data = gpm_data or power_data["rainfall"]
 
     # Generate active environmental alerts based on real indicators
     alerts = []
@@ -53,7 +66,7 @@ async def get_or_calculate_env_summary(farm_id: str) -> EnvironmentalSummary:
             "title": "Severe Heat Stress Exposure",
             "message": f"{power_data['temperature'].hot_days_gt_35c} days exceeded 35°C during this period. Risk of terminal heat shock during flowering or grain-filling stages."
         })
-    if smap_data.soil_moisture_percentile < 35.0:
+    if smap_data.soil_moisture_percentile is not None and smap_data.soil_moisture_percentile < 35.0:
         alerts.append({
             "severity": "medium",
             "title": "Root-Zone Moisture Deficit",
@@ -66,19 +79,45 @@ async def get_or_calculate_env_summary(farm_id: str) -> EnvironmentalSummary:
             "message": f"Slope of {terrain_data.slope_degrees}° with low canopy cover increases sheet erosion risk during heavy convective storm bursts."
         })
 
-    is_demo = power_data["temperature"].provenance.is_demo
+    metric_provenance = {
+        "temperature": power_data["temperature"].provenance,
+        "rainfall": rainfall_data.provenance,
+        "soil moisture": smap_data.provenance,
+        "soil properties": soil_data.provenance,
+        "vegetation": veg_data.provenance,
+        "terrain": terrain_data.provenance,
+    }
+    demo_metrics = [name for name, provenance in metric_provenance.items() if provenance.is_demo]
+    is_demo = bool(demo_metrics)
+    if len(demo_metrics) == len(metric_provenance):
+        data_status = "demo"
+    elif demo_metrics:
+        data_status = "mixed"
+    else:
+        data_status = "live"
+
+    data_messages = []
+    for name in demo_metrics:
+        provenance = metric_provenance[name]
+        data_messages.append(f"{name.title()}: {provenance.notes or 'demo fallback in use.'}")
+    if not settings.DEMO_MODE and gpm_data is None:
+        data_messages.append("GPM IMERG was unavailable or not configured; rainfall metrics use NASA POWER.")
+    if not settings.DEMO_MODE and used_soilgrids_fallback:
+        data_messages.append("SSURGO/STATSGO2 had no result for this coordinate or was unavailable; SoilGrids was used.")
 
     return EnvironmentalSummary(
         farm_id=farm_id,
-        evaluation_date=datetime.utcnow().strftime("%Y-%m-%d"),
+        evaluation_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         temperature=power_data["temperature"],
-        rainfall=power_data["rainfall"],
+        rainfall=rainfall_data,
         soil_moisture=smap_data,
         vegetation=veg_data,
         soil_properties=soil_data,
         terrain=terrain_data,
         environmental_alerts=alerts,
-        is_demo_data=is_demo
+        is_demo_data=is_demo,
+        data_status=data_status,
+        data_messages=data_messages,
     )
 
 @router.get("/environment", response_model=EnvironmentalSummary)
@@ -98,25 +137,20 @@ async def get_environmental_trends(farm_id: str):
 
     power_data = await nasa_power_svc.fetch_daily_agrometeorology(farm["latitude"], farm["longitude"])
     raw_series = power_data.get("raw_time_series", {})
-
-    # Generate multi-year seasonal comparison trend (2023 - 2026)
-    seasonal_comparison = [
-        {"season": "Kharif 2023", "rainfall_mm": 410, "avg_temp_c": 28.2, "ndvi": 0.62, "soil_moisture_pct": 28},
-        {"season": "Rabi 2023-24", "rainfall_mm": 115, "avg_temp_c": 16.5, "ndvi": 0.71, "soil_moisture_pct": 24},
-        {"season": "Kharif 2024", "rainfall_mm": 340, "avg_temp_c": 29.8, "ndvi": 0.54, "soil_moisture_pct": 21},
-        {"season": "Rabi 2024-25", "rainfall_mm": 95, "avg_temp_c": 17.8, "ndvi": 0.64, "soil_moisture_pct": 20},
-        {"season": "Kharif 2025", "rainfall_mm": 310, "avg_temp_c": 30.5, "ndvi": 0.49, "soil_moisture_pct": 19},
-        {"season": "Rabi 2025-26", "rainfall_mm": 88, "avg_temp_c": 18.2, "ndvi": 0.58, "soil_moisture_pct": 18}
-    ]
+    trend_data = await nasa_power_svc.fetch_seasonal_trends(farm["latitude"], farm["longitude"])
 
     return {
         "farm_id": farm_id,
         "daily_weather_series": raw_series,
-        "historical_seasonal_comparison": seasonal_comparison,
+        "historical_seasonal_comparison": trend_data["seasons"],
+        "status": trend_data["status"],
+        "is_demo": trend_data["is_demo"],
+        "message": trend_data["message"],
         "metadata": {
-            "source": "NASA POWER & SMAP & Copernicus Sentinel-2",
-            "granularity": "Daily & Seasonal Aggregate"
-        }
+            "source": trend_data["source"],
+            "baseline_period": trend_data.get("baseline_period"),
+            "granularity": "Daily recent series and six-month seasonal aggregates",
+        },
     }
 
 @router.get("/soil", response_model=SoilPropertiesMetrics)
@@ -130,6 +164,9 @@ async def get_farm_soil(farm_id: str):
     if not farm:
         raise HTTPException(status_code=404, detail=f"Farm '{farm_id}' not found.")
 
+    soil_data = await usda_soils_svc.fetch_soil_profile(farm["latitude"], farm["longitude"])
+    if soil_data is not None:
+        return soil_data
     return await soilgrids_svc.fetch_soil_profile(farm["latitude"], farm["longitude"])
 
 @router.get("/vegetation", response_model=VegetationMetrics)

@@ -141,7 +141,7 @@ export default function ReportsPage() {
               <strong className="text-sm text-[#183D2C]">
                 {report.environmental_diagnostics.soil_ph} pH • {report.environmental_diagnostics.soil_organic_carbon_g_kg} g/kg
               </strong>
-              <span className="text-[10px] text-[#617367] block">SoilGrids 2.0</span>
+              <span className="text-[10px] text-[#617367] block">SSURGO / SoilGrids</span>
             </div>
           </div>
         </div>

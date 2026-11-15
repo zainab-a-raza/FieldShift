@@ -25,10 +25,45 @@ async def generate_farm_report(farm_id: str):
 
     env = await get_or_calculate_env_summary(farm_id)
     rotations = await get_farm_rotations(farm_id)
+    recommended = next(
+        strategy for strategy in rotations.strategies
+        if strategy.strategy_id == rotations.recommended_strategy_id
+    )
+    metric_provenance = {
+        "Temperature": env.temperature.provenance,
+        "Precipitation": env.rainfall.provenance,
+        "Soil moisture": env.soil_moisture.provenance,
+        "Vegetation": env.vegetation.provenance,
+        "Soil properties": env.soil_properties.provenance,
+        "Terrain": env.terrain.provenance,
+    }
+    citations = []
+    for metric, provenance in metric_provenance.items():
+        observation_window = ""
+        if provenance.observation_start or provenance.observation_end:
+            observation_window = (
+                f"; observation window {provenance.observation_start or 'unknown'} "
+                f"to {provenance.observation_end or 'unknown'}"
+            )
+        citations.append({
+            "metric": metric,
+            "source": provenance.source_name,
+            "product": provenance.product_version,
+            "quality_flag": provenance.quality_flag.value,
+            "is_demo": provenance.is_demo,
+            "citation": provenance.scientific_citation,
+            "details": f"{provenance.spatial_resolution}; {provenance.temporal_resolution}{observation_window}",
+        })
 
     return {
         "report_id": f"REP-{farm_id.upper()}-{datetime.utcnow().strftime('%Y%m%d')}",
         "generated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "report_status": env.data_status,
+        "data_messages": env.data_messages,
+        "decision_support_disclaimer": (
+            "Decision-support draft only. Values may include modeled, remotely sensed, cached, or demo inputs. "
+            "Confirm recommendations with local observations and a qualified agronomist before operational use."
+        ),
         "farm_profile": {
             "name": farm["name"],
             "location": farm["location_name"],
@@ -40,17 +75,24 @@ async def generate_farm_report(farm_id: str):
         },
         "environmental_diagnostics": {
             "annual_rainfall_mm": env.rainfall.annual_precipitation_mm,
+            "rainfall_source": env.rainfall.provenance.source_name,
             "max_consecutive_dry_days": env.rainfall.max_consecutive_dry_days,
             "hot_days_gt_35c": env.temperature.hot_days_gt_35c,
+            "temperature_source": env.temperature.provenance.source_name,
             "surface_soil_moisture": f"{env.soil_moisture.surface_soil_moisture_m3_m3} m³/m³ ({env.soil_moisture.anomaly_status})",
+            "soil_moisture_source": env.soil_moisture.provenance.source_name,
             "soil_ph": env.soil_properties.ph_in_h2o,
             "soil_organic_carbon_g_kg": env.soil_properties.organic_carbon_g_kg,
+            "soil_properties_source": env.soil_properties.provenance.source_name,
             "topographic_slope": f"{env.terrain.slope_degrees}° ({env.terrain.slope_category})",
             "active_alerts": env.environmental_alerts
         },
         "rotation_recommendations": {
-            "recommended_strategy_title": [s for s in rotations.strategies if s.strategy_id == rotations.recommended_strategy_id][0].title,
-            "recommended_score": [s for s in rotations.strategies if s.strategy_id == rotations.recommended_strategy_id][0].overall_score,
+            "recommended_strategy_title": recommended.title,
+            "recommended_score": recommended.overall_score,
+            "recommended_summary": recommended.summary,
+            "recommended_reasons": recommended.reasons_for_recommendation,
+            "missing_data_warnings": recommended.missing_data_warnings,
             "strategies_overview": [
                 {
                     "title": s.title,
@@ -63,11 +105,5 @@ async def generate_farm_report(farm_id: str):
                 for s in rotations.strategies
             ]
         },
-        "scientific_provenance_citations": [
-            "NASA POWER Daily Agroclimatology (MERRA-2 Data Assimilation)",
-            "NASA SMAP Level-3 Radiometer Global Soil Moisture (SPL3SMP_E)",
-            "ISRIC SoilGrids 2.0 Global Digital Soil Mapping (250m)",
-            "Copernicus Sentinel-2 Harmonized Level-2A Surface Reflectance",
-            "NASA SRTM Global 1 Arc-Second Digital Elevation Model"
-        ]
+        "scientific_provenance_citations": citations,
     }
