@@ -1,4 +1,6 @@
 import {
+  AuthResponse,
+  AuthUser,
   CropTrait,
   DataSource,
   DecisionReport,
@@ -11,6 +13,39 @@ import {
 } from "@/types";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+async function authRequest(path: string, options: RequestInit = {}): Promise<Response> {
+  return fetch(`${API_BASE_URL}/api/auth${path}`, {
+    ...options,
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...options.headers },
+  });
+}
+
+export async function signIn(email: string, password: string): Promise<AuthResponse> {
+  const response = await authRequest("/login", { method: "POST", body: JSON.stringify({ email, password }) });
+  if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail || "Unable to sign in.");
+  return response.json();
+}
+
+export async function signUp(fullName: string, email: string, password: string): Promise<AuthResponse> {
+  const response = await authRequest("/signup", { method: "POST", body: JSON.stringify({ full_name: fullName, email, password }) });
+  if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail || "Unable to create account.");
+  return response.json();
+}
+
+export async function fetchCurrentUser(): Promise<AuthUser | null> {
+  const response = await authRequest("/me");
+  if (response.status === 401) return null;
+  if (!response.ok) throw new Error("Unable to load your profile.");
+  return response.json();
+}
+
+export async function signOut(): Promise<void> {
+  const response = await authRequest("/logout", { method: "POST" });
+  if (!response.ok) throw new Error("Unable to sign out.");
+  clearApiCache();
+}
 
 type BrowserCacheEntry = { expiresAt: number; value: unknown };
 

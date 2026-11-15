@@ -4,8 +4,9 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFarm } from "@/context/FarmContext";
 import { createFarm } from "@/lib/api";
-import { MapPin, Sprout, Droplets, Layers, CheckCircle2, ArrowLeft, Globe } from "lucide-react";
+import { Sprout, Layers, CheckCircle2, ArrowLeft, Globe, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { FarmLocationPicker } from "@/components/FarmLocationPicker";
 
 export default function NewFarmPage() {
   const router = useRouter();
@@ -21,38 +22,59 @@ export default function NewFarmPage() {
     previous_crop_sequence: "wheat, fallow, wheat",
     irrigation_type: "rainfed",
     primary_priority: "balanced",
+    boundaries_geojson: null as {
+      type: "Polygon";
+      coordinates: number[][][];
+    } | null,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [currentStep, setCurrentStep] = useState(1);
+
+  const steps = [
+    { title: "Farm identity", description: "Name and region" },
+    { title: "Field location", description: "Map and area" },
+    { title: "Farm practice", description: "Crops and irrigation" },
+    { title: "Your priority", description: "Planning goal" },
+  ];
+
+  const handleNext = () => {
+    setErrorMsg("");
+    if (currentStep === 1 && (!formData.name.trim() || !formData.location_name.trim())) {
+      setErrorMsg("Add your holding name and geographic location to continue.");
+      return;
+    }
+    if (currentStep === 2 && !formData.boundaries_geojson) {
+      setErrorMsg("Click the map to select your field location before continuing.");
+      return;
+    }
+    setCurrentStep((step) => Math.min(step + 1, steps.length));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (currentStep !== steps.length) {
+      handleNext();
+      return;
+    }
     setIsSubmitting(true);
     setErrorMsg("");
 
     try {
+      if (!formData.boundaries_geojson) {
+        setErrorMsg("Please click the map to select your field location before saving.");
+        setIsSubmitting(false);
+        return;
+      }
+
       const prevSeq = formData.previous_crop_sequence
         .split(",")
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean);
 
-      // Construct a valid GeoJSON Polygon around the coordinate centroid
       const lat = Number(formData.latitude);
       const lon = Number(formData.longitude);
-      const delta = 0.005; // ~500m box
-      const geojson = {
-        type: "Polygon",
-        coordinates: [
-          [
-            [lon - delta, lat - delta],
-            [lon + delta, lat - delta],
-            [lon + delta, lat + delta],
-            [lon - delta, lat + delta],
-            [lon - delta, lat - delta],
-          ],
-        ],
-      };
 
       const payload = {
         name: formData.name,
@@ -60,7 +82,7 @@ export default function NewFarmPage() {
         latitude: lat,
         longitude: lon,
         area_hectares: Number(formData.area_hectares),
-        boundaries_geojson: geojson,
+        boundaries_geojson: formData.boundaries_geojson,
         current_crop: formData.current_crop.toLowerCase(),
         previous_crop_sequence: prevSeq,
         irrigation_type: formData.irrigation_type,
@@ -71,7 +93,7 @@ export default function NewFarmPage() {
       await refreshFarms();
       setSelectedFarm(newFarm);
       router.push("/dashboard");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       setErrorMsg("Failed to register holding. Please verify inputs or ensure backend server is accessible.");
     } finally {
@@ -105,10 +127,32 @@ export default function NewFarmPage() {
         </div>
       )}
 
+      <div className="rounded-2xl border border-[#E8E2D2] bg-white p-4 sm:p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#39734C]">
+              Step {currentStep} of {steps.length}
+            </p>
+            <p className="mt-1 text-sm font-bold text-[#183D2C]">{steps[currentStep - 1].title}</p>
+          </div>
+          <p className="text-right text-[11px] text-[#617367]">{steps[currentStep - 1].description}</p>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {steps.map((step, index) => (
+            <div key={step.title}>
+              <div className={`h-1.5 rounded-full ${index < currentStep ? "bg-[#39734C]" : "bg-[#E8EDE6]"}`} />
+              <p className={`mt-2 hidden text-[10px] font-semibold sm:block ${index + 1 === currentStep ? "text-[#39734C]" : "text-[#9AA69D]"}`}>
+                {index + 1}. {step.title}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Farm Registration Form */}
       <form onSubmit={handleSubmit} className="bg-[#FFFFFF] rounded-2xl p-6 lg:p-8 border border-[#E8E2D2] shadow-xs space-y-6">
         {/* Section 1: Farm Identification */}
-        <div className="space-y-4">
+        {currentStep === 1 && <div className="space-y-4">
           <h3 className="text-sm font-bold uppercase tracking-wider text-[#39734C] flex items-center gap-2">
             <Globe className="w-4 h-4" />
             1. Holding Identity & Region
@@ -141,63 +185,27 @@ export default function NewFarmPage() {
               />
             </div>
           </div>
-        </div>
+        </div>}
 
-        {/* Section 2: Spatial Coordinates & Area */}
-        <div className="space-y-4 pt-4 border-t border-[#F0EDE4]">
+        {/* Section 2: Field location & area */}
+        {currentStep === 2 && <div className="space-y-4">
           <h3 className="text-sm font-bold uppercase tracking-wider text-[#39734C] flex items-center gap-2">
-            <MapPin className="w-4 h-4" />
-            2. Coordinates & Cadastral Area
+            <Globe className="w-4 h-4" />
+            2. Select your field on the map
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-[#26352C] mb-1">
-                Latitude (°N) *
-              </label>
-              <input
-                type="number"
-                step="0.0001"
-                required
-                value={formData.latitude}
-                onChange={(e) => setFormData({ ...formData, latitude: Number(e.target.value) })}
-                className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-[#DDD6C3] bg-[#F8F8F3] text-[#26352C] focus:outline-none focus:ring-2 focus:ring-[#39734C]"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#26352C] mb-1">
-                Longitude (°E) *
-              </label>
-              <input
-                type="number"
-                step="0.0001"
-                required
-                value={formData.longitude}
-                onChange={(e) => setFormData({ ...formData, longitude: Number(e.target.value) })}
-                className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-[#DDD6C3] bg-[#F8F8F3] text-[#26352C] focus:outline-none focus:ring-2 focus:ring-[#39734C]"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#26352C] mb-1">
-                Area (Hectares) *
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                min="0.5"
-                required
-                value={formData.area_hectares}
-                onChange={(e) => setFormData({ ...formData, area_hectares: Number(e.target.value) })}
-                className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-[#DDD6C3] bg-[#F8F8F3] text-[#26352C] focus:outline-none focus:ring-2 focus:ring-[#39734C]"
-              />
-            </div>
-          </div>
+          <FarmLocationPicker
+            latitude={formData.latitude}
+            longitude={formData.longitude}
+            areaHectares={formData.area_hectares}
+            onChange={(selection) => setFormData({ ...formData, latitude: selection.latitude, longitude: selection.longitude, area_hectares: selection.areaHectares, boundaries_geojson: selection.boundariesGeojson })}
+          />
           <p className="text-[11px] text-[#617367]">
-            * Coordinates will be bound to NASA POWER 0.5° weather grids and ISRIC 250m soil grids. Field boundary will be stored as a GeoJSON polygon.
+            Your map selection sets the farm center, area, and GeoJSON boundary automatically. Weather and soil models will use the selected location.
           </p>
-        </div>
+        </div>}
 
         {/* Section 3: Cropping & Management History */}
-        <div className="space-y-4 pt-4 border-t border-[#F0EDE4]">
+        {currentStep === 3 && <div className="space-y-4">
           <h3 className="text-sm font-bold uppercase tracking-wider text-[#39734C] flex items-center gap-2">
             <Sprout className="w-4 h-4" />
             3. Cropping History & Irrigation
@@ -254,10 +262,10 @@ export default function NewFarmPage() {
               className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-[#DDD6C3] bg-[#F8F8F3] text-[#26352C] focus:outline-none focus:ring-2 focus:ring-[#39734C]"
             />
           </div>
-        </div>
+        </div>}
 
         {/* Section 4: Farming Priority */}
-        <div className="space-y-4 pt-4 border-t border-[#F0EDE4]">
+        {currentStep === 4 && <div className="space-y-4">
           <h3 className="text-sm font-bold uppercase tracking-wider text-[#39734C] flex items-center gap-2">
             <Layers className="w-4 h-4" />
             4. Strategic Management Goal
@@ -305,30 +313,45 @@ export default function NewFarmPage() {
               </label>
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* Submit Actions */}
-        <div className="pt-6 border-t border-[#F0EDE4] flex items-center justify-end gap-3">
+        <div className="pt-6 border-t border-[#F0EDE4] flex items-center justify-between gap-3">
           <Link
-            href="/farms"
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-[#617367] hover:text-[#26352C] transition"
+            href={currentStep === 1 ? "/farms" : "#"}
+            onClick={(event) => {
+              if (currentStep > 1) {
+                event.preventDefault();
+                setCurrentStep((step) => step - 1);
+                setErrorMsg("");
+              }
+            }}
+            className="inline-flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-semibold text-[#617367] hover:text-[#26352C] transition"
           >
-            Cancel
+            <ChevronLeft className="h-4 w-4" />
+            {currentStep === 1 ? "Cancel" : "Back"}
           </Link>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="flex items-center gap-2 bg-[#39734C] hover:bg-[#183D2C] text-white px-6 py-2.5 rounded-xl text-xs font-semibold shadow-xs transition"
-          >
-            {isSubmitting ? (
-              <span>Connecting NASA Feeds...</span>
-            ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Save Holding & Launch Diagnostics</span>
-              </>
-            )}
-          </button>
+          {currentStep < steps.length ? (
+            <button type="button" onClick={handleNext} className="inline-flex items-center gap-2 bg-[#39734C] hover:bg-[#183D2C] text-white px-6 py-2.5 rounded-xl text-xs font-semibold shadow-xs transition">
+              <span>Next step</span>
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 bg-[#39734C] hover:bg-[#183D2C] text-white px-6 py-2.5 rounded-xl text-xs font-semibold shadow-xs transition"
+            >
+              {isSubmitting ? (
+                <span>Connecting NASA Feeds...</span>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Save Holding & Launch Diagnostics</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </form>
     </div>

@@ -1,3 +1,13 @@
+export interface AuthUser {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
+export interface AuthResponse {
+  user: AuthUser;
+}
+
 export interface ProvenanceRecord {
   metric_id: string;
   metric_name: string;

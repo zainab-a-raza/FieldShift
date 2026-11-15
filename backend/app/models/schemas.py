@@ -6,6 +6,25 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from app.provenance.tracker import ProvenanceRecord, MetricProvenance
 
+# --- Authentication Schemas ---
+
+class SignUpRequest(BaseModel):
+    full_name: str = Field(..., min_length=2, max_length=100)
+    email: str = Field(..., min_length=5, max_length=254)
+    password: str = Field(..., min_length=8, max_length=128)
+
+class LoginRequest(BaseModel):
+    email: str = Field(..., min_length=5, max_length=254)
+    password: str = Field(..., min_length=1, max_length=128)
+
+class UserResponse(BaseModel):
+    id: str
+    full_name: str
+    email: str
+
+class AuthResponse(BaseModel):
+    user: UserResponse
+
 # --- Farm Schemas ---
 
 class FarmBase(BaseModel):
