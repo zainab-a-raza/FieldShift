@@ -192,16 +192,52 @@ FieldShift/
 ## 9. Quick Start & Setup Instructions
 
 ### Prerequisites
-- **Python 3.10+** (Tested on Python 3.12 / 3.14)
-- **Node.js 18+** & **npm**
+- **Windows:** Python 3.10 or newer and Node.js 20.9 or newer with npm, available on `PATH`.
+- An internet connection for the initial dependency installation.
 
-### Step 1: Start the Backend API
+### Start both services automatically (Windows)
+
+Open the project folder in VS Code and run this from its PowerShell terminal,
+or double-click `run.bat` in File Explorer:
+
+```powershell
+.\run.bat
+```
+
+The script creates `backend\.venv` if needed, creates `backend\.env` from
+`.env.example` only if it does not already exist, installs the backend and
+frontend dependencies, and opens a separate terminal window for each server.
+The script does not overwrite existing environment settings. Visit
+http://localhost:3000 after the frontend reports that it is ready. Backend API
+documentation is at http://localhost:8000/docs. Stop the services with Ctrl+C
+in each server window. If a port is already in use, stop the existing service
+or configure the appropriate port before starting again.
+
+To install dependencies without starting the servers, run
+`.\run.bat --setup-only`.
+
+### Start both services manually (VS Code PowerShell)
+
+From the project folder, run the following in the first terminal:
+
 ```powershell
 cd backend
-python -m pip install -r requirements.txt
-Copy-Item .env.example .env
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
+
+Open a second terminal in the project folder:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:3000. If the Python launcher `py` is not available,
+replace `py -3` in the virtual environment command with `python`.
 
 The included `backend/.env` is set to `DEMO_MODE=true` and uses the fictional,
 editable `backend/app/data/sample_environment.json` dataset without external
@@ -229,17 +265,6 @@ the first successful fetch instead of restarting every upstream request.
 
 Interactive API documentation will be available at:  
 👉 **http://localhost:8000/docs**
-
-### Step 2: Start the Frontend Application
-In a separate terminal window:
-```powershell
-cd frontend
-npm install
-npm run dev
-```
-
-Open your browser at:  
-👉 **http://localhost:3000**
 
 ---
 
