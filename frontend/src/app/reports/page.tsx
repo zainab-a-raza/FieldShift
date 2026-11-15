@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { useFarm } from "@/context/FarmContext";
 import { fetchReport } from "@/lib/api";
+import { DecisionReport } from "@/types";
 import {
   Printer,
   MapPin,
@@ -20,7 +21,7 @@ import {
 export default function ReportsPage() {
   const { selectedFarm } = useFarm();
 
-  const [report, setReport] = useState<any>(null);
+  const [report, setReport] = useState<DecisionReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -284,7 +285,7 @@ export default function ReportsPage() {
                   </span>
                 </p>
                 <p className="text-xs text-[#849085] mt-1">
-                  NASA POWER
+                  {environment.rainfall_source}
                 </p>
               </div>
             </div>
@@ -304,7 +305,7 @@ export default function ReportsPage() {
                   </span>
                 </p>
                 <p className="text-xs text-[#849085] mt-1">
-                  Days with temperatures above 35°C · MERRA-2
+                  Days with temperatures above 35°C · {environment.temperature_source}
                 </p>
               </div>
             </div>
@@ -321,7 +322,7 @@ export default function ReportsPage() {
                   {environment?.surface_soil_moisture ?? "—"}
                 </p>
                 <p className="text-xs text-[#849085] mt-1">
-                  NASA SMAP · 9 km resolution
+                  {environment.soil_moisture_source}
                 </p>
               </div>
             </div>
@@ -342,7 +343,7 @@ export default function ReportsPage() {
                   {environment?.soil_organic_carbon_g_kg ?? "—"} g/kg
                 </p>
                 <p className="text-xs text-[#849085] mt-1">
-                  SoilGrids 2.0
+                  {environment.soil_properties_source}
                 </p>
               </div>
             </div>
@@ -398,7 +399,7 @@ export default function ReportsPage() {
           <div className="space-y-3">
             {recommendations?.strategies_overview?.length > 0 ? (
               recommendations.strategies_overview.map(
-                (strategy: any, index: number) => (
+                (strategy, index: number) => (
                   <div
                     key={index}
                     className="p-4 rounded-xl border border-[#E8E2D2] bg-[#F8F8F3]"
@@ -457,7 +458,7 @@ export default function ReportsPage() {
           <div className="space-y-2">
             {report.scientific_provenance_citations?.length > 0 ? (
               report.scientific_provenance_citations.map(
-                (citation: string, index: number) => (
+                (citation, index: number) => (
                   <p
                     key={index}
                     className="text-xs text-[#526156] leading-relaxed"
@@ -465,7 +466,7 @@ export default function ReportsPage() {
                     <span className="font-semibold text-[#39734C]">
                       [{index + 1}]
                     </span>{" "}
-                    {citation}
+                    <strong>{citation.metric}:</strong> {citation.source} · {citation.product} · {citation.details} · {citation.quality_flag.replace(/_/g, " ")}{citation.is_demo ? " · Sample data" : ""}{citation.citation ? ` · ${citation.citation}` : ""}
                   </p>
                 )
               )
